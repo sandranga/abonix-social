@@ -43,3 +43,15 @@ def test_normalize_fixes_cedilla_and_hashtags():
     assert d.headline == "Știi cine expiră așa?"
     assert d.hashtags_ig == ["#salafitness", "#Sala", "#abonix"]
     assert d.hashtags_fb == ["#abonix"]
+
+
+def test_links_in_captions_are_flagged():
+    for link in ("https://abonix.net", "www.abonix.net", "abonix.net", "clubultau.abonix.net"):
+        d = good_draft(caption_fb=f"Memento-uri automate. Detalii pe {link}, link în bio.")
+        assert any("Link în caption FB" in i and link in i for i in rule_issues(d, "feature")), link
+
+
+def test_caption_must_point_to_bio():
+    d = good_draft(caption_fb="Memento-uri automate pe email și SMS.")
+    assert any("caption FB nu trimite" in i for i in rule_issues(d, "feature"))
+    assert rule_issues(good_draft(caption_fb="Vezi cum arată, linkul din bio."), "feature") == []

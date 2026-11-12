@@ -263,3 +263,66 @@ async def test_failed_regeneration_keeps_the_old_draft(settings, tmp_path):
         await p.regenerate(post.id, feedback="altfel")
     after = p.get(post.id)
     assert after.status == PostStatus.draft and after.revision == 1 and after.content == post.content
+
+
+async def test_extra_post_even_when_today_is_published(settings, tmp_path):
+    p, n = make(settings, tmp_path)
+    daily = await p.generate_for(MONDAY)
+    await p.approve(daily.id)
+    await p.publish(daily.id)
+    assert p.get(daily.id).status == PostStatus.published
+
+    extra = await p.generate_extra(MONDAY)
+    assert extra.status == PostStatus.draft and extra.extra and extra.id != daily.id
+    assert extra.subject != daily.subject  # rotation moves on within the theme
+    # A second extra keeps the first one open; the daily guard is unchanged.
+    extra2 = await p.generate_extra(MONDAY)
+    assert p.get(extra.id).status == PostStatus.draft and extra2.id != extra.id
+    assert (await p.generate_for(MONDAY, force=True)).id == daily.id
+
+
+async def test_extra_does_not_block_or_expire_with_daily(settings, tmp_path):
+    p, _ = make(settings, tmp_path)
+    extra = await p.generate_extra(MONDAY)
+    await p.approve(extra.id)
+    daily = await p.generate_for(MONDAY)  # 08:00 run still makes the daily post
+    assert daily.id != extra.id and not daily.extra
+    open_extra = await p.generate_extra(MONDAY)
+    await p.generate_for(MONDAY, force=True)  # /azi replaces the daily draft only
+    assert p.get(open_extra.id).status == PostStatus.draft
+
+
+async def test_extra_borrows_another_days_theme(settings, tmp_path):
+    p, n = make(settings, tmp_path)
+    sunday = date(2026, 11, 15)
+    assert await p.generate_extra(sunday) is None and n.infos
+    post = await p.generate_extra(sunday, weekday=THURSDAY.weekday())
+    assert post.template == "photo" and post.for_date == sunday
+    again = await p.regenerate(post.id, image_only=True)  # uses the borrowed theme
+    assert again.template == "photo" and again.revision == 2
+
+
+def test_migration_adds_extra_column(tmp_path):
+    import sqlite3
+
+    from sqlalchemy import inspect
+
+    from app import db
+
+    path = tmp_path / "old.db"
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE posts (id INTEGER PRIMARY KEY, for_date DATE)")
+    con.execute("INSERT INTO posts (for_date) VALUES ('2026-11-09')")
+    con.commit(); con.close()
+    db.init_db(f"sqlite:///{path.as_posix()}")
+    try:
+        assert "extra" in {c["name"] for c in inspect(db._engine).get_columns("posts")}
+        assert sqlite3.connect(path).execute("SELECT extra FROM posts").fetchone() == (0,)
+    finally:
+        db._engine.dispose()
+
+
+def test_parse_weekday():
+    from app.approve.telegram import parse_weekday
+    assert parse_weekday("joi") == 3 and parse_weekday("Sambata") == 5 and parse_weekday("marți") == 1
+    assert parse_weekday("mâine") is None

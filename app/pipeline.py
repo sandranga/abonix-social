@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import anthropic
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app import content, db
 from app.config import Settings, get_settings
@@ -155,10 +155,11 @@ class Pipeline:
             return None
         with db.session() as s:
             locked = s.scalars(select(Post).where(
-                Post.for_date == d,
+                Post.for_date == d, Post.extra.is_(False),
                 Post.status.in_([PostStatus.approved, PostStatus.publishing, PostStatus.published]),
             )).first()
-            draft = s.scalars(select(Post).where(Post.for_date == d, Post.status == PostStatus.draft)).first()
+            draft = s.scalars(select(Post).where(Post.for_date == d, Post.extra.is_(False),
+                                                 Post.status == PostStatus.draft)).first()
         # Never a second post for a day that is already approved/published.
         if locked:
             log.info("%s already has post #%s (%s)", d, locked.id, locked.status.value)
@@ -168,8 +169,10 @@ class Pipeline:
         if draft and not force:
             return draft
         with db.session() as s:
-            # Older unapproved drafts are superseded.
-            for old in s.scalars(select(Post).where(Post.status == PostStatus.draft, Post.for_date <= d)):
+            # Older unapproved drafts are superseded (today's extras stay open).
+            for old in s.scalars(select(Post).where(
+                    Post.status == PostStatus.draft,
+                    or_(Post.for_date < d, (Post.for_date == d) & Post.extra.is_(False)))):
                 old.status = PostStatus.expired
         try:
             return await self._generate(d, plan)
@@ -178,8 +181,22 @@ class Pipeline:
             await self.notifier.alert(f"Generarea pentru {d:%d.%m} a eșuat: {e}")
             raise
 
+    async def generate_extra(self, d: date, weekday: int | None = None) -> Post | None:
+        """An additional post for `d`, on top of the daily one and whatever is
+        already approved or published. `weekday` borrows that day's theme."""
+        plan = content.weekday_plan(d.weekday() if weekday is None else weekday)
+        if plan is None:
+            await self.notifier.info("Ziua asta nu are temă. Alege una, de ex. /extra joi")
+            return None
+        try:
+            return await self._generate(d, plan, extra=True)
+        except Exception as e:
+            log.exception("extra generation failed for %s", d)
+            await self.notifier.alert(f"Generarea postării extra a eșuat: {e}")
+            raise
+
     async def _generate(self, d: date, plan: content.DayPlan, *, base: Post | None = None,
-                        feedback: str | None = None, image_only: bool = False) -> Post:
+                        feedback: str | None = None, image_only: bool = False, extra: bool = False) -> Post:
         async with self._lock:
             subject = base.subject if base else self.pick_subject(plan)
             with db.session() as s:
@@ -189,7 +206,7 @@ class Pipeline:
                     post.status = PostStatus.generating
                 else:
                     post = Post(for_date=d, theme=plan.theme, subject=subject, template=plan.template,
-                                status=PostStatus.generating)
+                                status=PostStatus.generating, extra=extra)
                     s.add(post)
                 s.flush()
                 post_id = post.id
@@ -300,9 +317,9 @@ class Pipeline:
         post = self.get(post_id)
         if not post or post.status != PostStatus.draft:
             raise ValueError(f"post {post_id} is not a draft")
-        plan = content.day_plan(post.for_date)
+        plan = content.theme_plan(post.theme)
         if plan is None:
-            raise ValueError("no theme for that day")
+            raise ValueError(f"theme {post.theme} is no longer in the calendar")
         await self.notifier.mark(post, "→ regenerez")
         try:
             return await self._generate(post.for_date, plan, base=post, feedback=feedback, image_only=image_only)
@@ -464,7 +481,8 @@ class Pipeline:
                  "DRY RUN (nu public nimic)" if self.s.dry_run else "Publicare reală activă", ""]
         for p in posts:
             when = as_utc(p.scheduled_for).astimezone(self.s.tz).strftime(" → %d.%m %H:%M") if p.scheduled_for else ""
-            lines.append(f"#{p.id} {p.for_date:%d.%m} {p.theme}: {STATUS_LABEL[p.status]}{when}"
+            lines.append(f"#{p.id} {p.for_date:%d.%m} {p.theme}{' (extra)' if p.extra else ''}: "
+                         f"{STATUS_LABEL[p.status]}{when}"
                          + (f"\n   eroare: {p.last_error[:150]}" if p.last_error and p.status != PostStatus.published else ""))
         nxt = self.today() + timedelta(days=1)
         lines.append(f"\nGenerare zilnică {self.s.generate_time:%H:%M}, publicare {self.s.publish_time:%H:%M}.")

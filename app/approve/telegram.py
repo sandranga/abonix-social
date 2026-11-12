@@ -38,6 +38,8 @@ STATUS_LABEL = {
 HELP = """Comenzi:
 /azi – generează acum draftul pentru azi
 /genereaza AAAA-LL-ZZ – generează draftul pentru o dată
+/extra – încă o postare azi, chiar dacă cea de azi e deja aprobată/publicată
+/extra joi – postare extra cu tema altei zile (luni … sâmbătă)
 /status – ultimele postări și ce urmează
 /pauza – oprește generarea și publicarea automată
 /reia – pornește din nou
@@ -49,6 +51,13 @@ de ex. „titlul mai scurt, fără emoji”, și îl regenerez cu ele."""
 
 
 ZILE = ["luni", "marți", "miercuri", "joi", "vineri", "sâmbătă", "duminică"]
+
+
+def parse_weekday(arg: str) -> int | None:
+    """'joi', 'Marti', 'sâmbătă', 'sambata' -> 0..6; anything else -> None."""
+    plain = str.maketrans("ăâîșşțţ", "aaisstt")
+    a = arg.strip().lower().translate(plain)
+    return next((i for i, z in enumerate(ZILE) if z.translate(plain) == a), None)
 
 
 def _truncate(s: str, n: int) -> str:
@@ -110,7 +119,8 @@ class TelegramNotifier:
             return None
         chat = self.chat_ids[0]
         c = post.content
-        head = [f"Draft #{post.id} (v{post.revision}) · {ZILE[post.for_date.weekday()]} {post.for_date:%d.%m}",
+        head = [f"Draft #{post.id} (v{post.revision}){' · EXTRA' if post.extra else ''}"
+                f" · {ZILE[post.for_date.weekday()]} {post.for_date:%d.%m}",
                 f"Temă: {post.theme} · {post.subject}"]
         if when:
             head.append(f"Se publică la: {when:%d.%m %H:%M} după aprobare")
@@ -234,6 +244,17 @@ class TelegramBot:
                 return
             await self.api.call("sendMessage", chat_id=chat, text=f"⏳ Generez draftul pentru {d}…")
             await self.pipeline.generate_for(d, force=True)
+        elif cmd == "/extra":
+            wd = None
+            if arg.strip():
+                wd = parse_weekday(arg)
+                if wd is None:
+                    await self.api.call("sendMessage", chat_id=chat,
+                                        text="Folosește: /extra sau /extra joi (luni … sâmbătă)")
+                    return
+            label = f" cu tema de {ZILE[wd]}" if wd is not None else ""
+            await self.api.call("sendMessage", chat_id=chat, text=f"⏳ Generez o postare extra{label}…")
+            await self.pipeline.generate_extra(self.pipeline.today(), wd)
         elif cmd == "/status":
             await self.api.call("sendMessage", chat_id=chat, text=self.pipeline.status_text())
         elif cmd == "/pauza":

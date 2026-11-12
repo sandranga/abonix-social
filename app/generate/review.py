@@ -26,6 +26,9 @@ GRATUIT_OK_CONTEXT = re.compile(r"(check-in|cod(ul)? QR|fără aplicație|fără
 # Case-sensitive: "ai" is an ordinary Romanian word ("ai nevoie").
 FORBIDDEN_CASE = [r"\bAI\b"]
 PRICE_RE = re.compile(r"(\d{2,4})\s*(?:RON|lei)\b", re.I)
+# Captions carry no links: the call to action is always "link în bio".
+LINK_RE = re.compile(r"https?://\S+|\bwww\.\S+|\b[\w-]+(?:\.[\w-]+)*\.(?:net|ro|com|eu|org|io|app)\b\S*", re.I)
+BIO_RE = re.compile(r"link(ul)? (din|în|in) bio", re.I)
 
 
 def words(s: str) -> int:
@@ -84,6 +87,12 @@ def rule_issues(d: PostDraft, template: str) -> list[str]:
         issues.append("Caption Facebook prea lung.")
     if not (3 <= len(d.hashtags_ig) <= 12):
         issues.append(f"{len(d.hashtags_ig)} hashtag-uri pe Instagram (5-10).")
+
+    for where, cap in (("caption IG", d.caption_ig), ("caption FB", d.caption_fb)):
+        for m in LINK_RE.finditer(cap):
+            issues.append(f"Link în {where}: „{m.group(0)}”. Fără linkuri, doar „link în bio”.")
+        if not BIO_RE.search(cap):
+            issues.append(f"{where} nu trimite la „link în bio”.")
 
     texts = {
         "titlu": d.headline, "subtitlu": d.subline, "caption IG": d.caption_ig,

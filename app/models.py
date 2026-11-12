@@ -4,7 +4,7 @@ import enum
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Date, DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -37,6 +37,9 @@ class Post(Base):
     template: Mapped[str] = mapped_column(String(40))
     status: Mapped[PostStatus] = mapped_column(Enum(PostStatus), default=PostStatus.generating, index=True)
     revision: Mapped[int] = mapped_column(Integer, default=1)
+    # Extra posts (/extra) come on top of the daily one: they never block it,
+    # and the daily one never blocks them.
+    extra: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     content: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     review_issues: Mapped[list[str]] = mapped_column(JSON, default=list)

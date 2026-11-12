@@ -22,8 +22,8 @@ def good_draft(**over: Any) -> PostDraft:
         points=[], points_after=[],
         caption_ig=("Câți membri ți-au expirat luna trecută fără să-i suni? Cu Abonix pleacă singure "
                     "memento-uri pe email și SMS cu 7 și 3 zile înainte. Planul Growth costă 215 RON pe lună. "
-                    "Scrie-ne pe WhatsApp: +40 750 415 082 sau link în bio."),
-        caption_fb="Memento-uri automate pe email și SMS. Detalii pe https://abonix.net",
+                    "Detalii și prețuri: link în bio."),
+        caption_fb="Memento-uri automate pe email și SMS. Detalii: link în bio.",
         hashtags_ig=["#salafitness", "#gestiunesala", "#abonamente", "#fitnessromania", "#abonix"],
         hashtags_fb=["#abonix"],
         alt_text="Ecranul de setări al memento-urilor din Abonix.",

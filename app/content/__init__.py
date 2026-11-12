@@ -53,11 +53,25 @@ class DayPlan:
 
 def day_plan(d: date) -> DayPlan | None:
     """The theme for a date, or None on days without a post."""
-    entry = calendar()["days"].get(d.weekday())
+    return weekday_plan(d.weekday())
+
+
+def theme_plan(theme: str) -> DayPlan | None:
+    """The calendar entry for a theme (extra posts can borrow another day's)."""
+    for wd in range(7):
+        plan = weekday_plan(wd)
+        if plan and plan.theme == theme:
+            return plan
+    return None
+
+
+def weekday_plan(wd: int) -> DayPlan | None:
+    """The theme for a weekday (0 = Monday), or None if it has no post."""
+    entry = calendar()["days"].get(wd)
     if not entry or entry.get("theme") == "none":
         return None
     return DayPlan(
-        weekday=d.weekday(),
+        weekday=wd,
         theme=entry["theme"],
         label=entry["label"],
         template=entry["template"],

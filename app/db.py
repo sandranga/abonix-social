@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -28,7 +28,16 @@ def init_db(url: str | None = None) -> None:
         cur.close()
 
     Base.metadata.create_all(_engine)
+    _migrate(_engine)
     _Session = sessionmaker(_engine, expire_on_commit=False)
+
+
+def _migrate(engine) -> None:
+    """Columns added after the first release (create_all only makes new tables)."""
+    cols = {c["name"] for c in inspect(engine).get_columns("posts")}
+    if "extra" not in cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE posts ADD COLUMN extra BOOLEAN NOT NULL DEFAULT 0"))
 
 
 @contextmanager

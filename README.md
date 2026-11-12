@@ -64,7 +64,7 @@ know your id yet, so you start the bot once without it and it tells you.
    `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser and copy the
    number after `"chat":{"id":`.)
 3. **Allow yourself.** In `.env`, set `TELEGRAM_ALLOWED_CHAT_IDS=123456789`
-   (several people: comma-separated). Then run `docker compose up -d`. Use this,
+   (several people: comma-separated). Then run `docker compose up -d --force-recreate`. Use this,
    **not** `docker compose restart`, which keeps the old `.env`. Send `/status`
    to the bot. If it answers, you're done.
 
@@ -122,10 +122,31 @@ Going live, in order:
 1. With `DRY_RUN=true`, approve a few drafts in Telegram. They are marked "published (DRY RUN)" and nothing is sent.
 2. `docker compose exec social python -m app.cli meta-check` passes.
 3. `docker compose exec social python -m app.cli meta-test /app/assets/...jpg` posts one test image (it asks first), then delete it.
-4. Set `DRY_RUN=false` and run `docker compose up -d`.
+4. Set `DRY_RUN=false` and run `docker compose up -d --force-recreate`.
+
+## Deploying updates
+Deploys only rebuild and restart the `abonix-social` container. Abonix's own
+containers are never stopped, rebuilt or pruned, and the script refuses to run
+in a folder whose `docker-compose.yml` isn't `name: abonix-social`.
+
+- **From GitHub:** *Actions → Deploy → Run workflow* (branch `main`). Needs the
+  repo secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (same values as
+  the Abonix repo) and `DEPLOY_PATH=/opt/abonix-social`.
+- **On the server:** `bash /opt/abonix-social/scripts/deploy.sh`
+
+Either way it fetches `main`, rebuilds, recreates the container (so `.env`
+changes apply) and waits until the agent has started, or prints the last log
+lines if it hasn't. `data/` and `.env` are git-ignored and never touched.
+Pushing to GitHub deploys nothing by itself.
+
+## Changing `.env`
+After any edit to `.env`, run `docker compose up -d --force-recreate`.
+`docker compose restart` (and sometimes plain `up -d`) keeps the old values.
 
 ## Telegram commands
-`/azi` generate today's draft now · `/genereaza 2026-11-12` · `/status` ·
+`/azi` generate today's draft now · `/genereaza 2026-11-12` ·
+`/extra` one more post today, even if today's is already approved or published ·
+`/extra joi` an extra post with another day's theme (luni … sâmbătă) · `/status` ·
 `/pauza` / `/reia` stop/resume automation · `/verifica` Meta token + IG quota ·
 reply to a draft with text → regenerate with those instructions.
 

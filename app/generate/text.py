@@ -51,8 +51,10 @@ Reguli:
   caption poți menționa prețul exact din fișă.
 - headline: maxim 6 cuvinte. subline: maxim 12 cuvinte. Se citesc pe telefon dintr-o privire.
 - caption_ig: 300-900 de caractere, cu un hook în prima frază, paragrafe scurte și un
-  call to action la final („link în bio” sau WhatsApp). Fără hashtag-uri în text.
-- caption_fb: poate fi la fel sau puțin diferit; poate conține https://abonix.net.
+  call to action la final care trimite la „link în bio”. Fără hashtag-uri în text.
+- caption_fb: poate fi la fel sau puțin diferit, tot cu „link în bio” la final.
+- Niciun link în caption-uri: fără https://, www., „abonix.net” sau alte adrese web,
+  fără număr de telefon. Doar „link în bio”.
 - Nu repeta unghiul, hook-ul sau titlul ultimelor postări primite.
 - Diacritice corecte cu virgulă: ș ț Ș Ț.
 """

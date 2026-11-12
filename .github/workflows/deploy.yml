@@ -1,0 +1,60 @@
+name: Deploy
+
+# Run by hand: Actions -> Deploy -> Run workflow. Nothing deploys on push.
+# It logs in to the server and runs scripts/deploy.sh in DEPLOY_PATH, which
+# rebuilds and restarts only the abonix-social container.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or tag to deploy
+        required: true
+        default: main
+        type: string
+
+run-name: Deploy Abonix Social from ${{ inputs.ref }}
+
+# Its own queue: never waits on or cancels an Abonix deploy.
+concurrency:
+  group: deploy-abonix-social
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to the server
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          script_stop: true
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="${{ secrets.DEPLOY_PATH }}"
+            if [ -z "$DEPLOY_PATH" ]; then
+              echo "DEPLOY_PATH secret is not set."
+              exit 1
+            fi
+            cd "$DEPLOY_PATH"
+
+            # Same guard as the script: only ever the social project's folder.
+            if ! grep -q '^name: abonix-social$' docker-compose.yml 2>/dev/null; then
+              echo "$DEPLOY_PATH is not the abonix-social folder. Stopping."
+              exit 1
+            fi
+
+            DEPLOY_REF="${{ inputs.ref }}"
+            echo ">>> Fetching ${DEPLOY_REF}..."
+            git fetch origin "${DEPLOY_REF}"
+            git reset --hard "origin/${DEPLOY_REF}"
+
+            # The rest is in the script, as it is in the ref just checked out.
+            DEPLOY_FETCHED=1 bash scripts/deploy.sh "${DEPLOY_REF}"

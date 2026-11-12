@@ -50,12 +50,12 @@ App Store / Google Play (aplicația membrilor este o aplicație web care se
 adaugă pe ecranul telefonului).
 
 ## Call to action standard
-Alege unul, variază-le:
-- „Scrie-ne pe WhatsApp: +40 750 415 082”
-- „Detalii și prețuri pe abonix.net”
-- „Cere acces pe abonix.net și îți configurăm noi spațiul.”
-Pe Instagram linkurile din caption nu sunt clickabile: spune „link în bio”
-sau dă numărul de WhatsApp. Pe Facebook poți scrie direct https://abonix.net.
+Fără linkuri în caption, nici pe Instagram, nici pe Facebook: fără https://,
+fără www., fără „abonix.net” sau alte adrese, fără număr de telefon.
+Call to action-ul trimite mereu la „link în bio”. Variază formularea, de ex.:
+- „Detalii și prețuri: link în bio.”
+- „Cere acces din link în bio și îți configurăm noi spațiul.”
+- „Vezi cum arată, link în bio.”
 
 ## Hashtag-uri
 Instagram: 5–10 hashtag-uri, mix de general și de nișă, în română, de ex.
