@@ -1,0 +1,33 @@
+# Cifrele care au voie să apară pe postările de tip „număr mare”.
+# Doar cifre adevărate despre produs. Poți adăuga statistici din industrie, dar
+# DOAR cu o sursă reală (câmpul `source`), verificată de tine.
+
+facts:
+  sms_300:
+    number: "300"
+    caption: "de caractere într-un SMS de memento, numărat ca un singur SMS"
+    source: Abonix
+  reminder_schedule:
+    number: "5"
+    caption: "momente de memento automat: cu 7 și 3 zile înainte, în ziua expirării, la 3 și 7 zile după"
+    source: Abonix
+  essential_75:
+    number: "145 RON"
+    caption: "pe lună pentru planul Essential, până la 75 de membri"
+    source: Abonix
+  growth_250:
+    number: "250"
+    caption: "de SMS-uri incluse lunar în planul Growth, pentru până la 250 de membri"
+    source: Abonix
+  pt_50:
+    number: "69 RON"
+    caption: "pe lună pentru antrenori personali, până la 50 de clienți"
+    source: Abonix
+  checkin_seconds:
+    number: "0"
+    caption: "aplicații de instalat pentru check-in: membrul scanează codul QR și confirmă cu telefonul"
+    source: Abonix
+  business_750:
+    number: "750"
+    caption: "de membri în planul Business, cu rapoarte de încasări incluse"
+    source: Abonix

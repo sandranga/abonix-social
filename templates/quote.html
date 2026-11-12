@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block style %}
+.tpl-quote { justify-content: center; padding-bottom: 160px; }
+.tpl-quote .mark { font-size: 300px; line-height: .7; font-weight: 800; opacity: .22; height: 150px; margin-left: -10px; }
+.tpl-quote h1 { font-size: 104px; line-height: 1.04; margin-top: 10px; }
+.tpl-quote h1.long { font-size: 88px; }
+.tpl-quote .sub { font-size: 42px; margin-top: 40px; }
+.tpl-quote .rule { width: 140px; height: 10px; border-radius: 10px; background: var(--sky-light); margin-top: 48px; }
+.accent-sky.tpl-quote .rule { background: #fff; }
+{% endblock %}
+{% block body %}
+<div class="blob" style="width:640px;height:640px;right:-260px;bottom:-200px"></div>
+<div class="dots" style="right:84px;top:96px"></div>
+<div class="kicker" style="position:absolute;top:88px;left:84px">{{ kicker }}</div>
+<div class="mark">“</div>
+<h1 class="{{ 'long' if headline|length > 30 }}">{{ headline }}</h1>
+<div class="rule"></div>
+<p class="sub">{{ subline }}</p>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "macros.html" import points_list %}
+{% block style %}
+.tpl-photo { padding: 0; color: #fff; background: var(--ink); }
+.photo { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.shade { position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(15,23,42,.05) 0%, rgba(15,23,42,.15) 38%, rgba(15,23,42,.82) 66%, rgba(15,23,42,.96) 100%); }
+.tint-indigo .shade { background: linear-gradient(180deg, rgba(67,56,202,.0) 0%, rgba(67,56,202,.2) 38%, rgba(49,46,129,.86) 66%, rgba(30,27,75,.97) 100%); }
+.tint-sky .shade { background: linear-gradient(180deg, rgba(2,132,199,0) 0%, rgba(2,132,199,.18) 38%, rgba(12,74,110,.86) 66%, rgba(8,47,73,.97) 100%); }
+.text { position: absolute; left: 84px; right: 84px; bottom: 170px; }
+.tpl-photo h1 { font-size: 88px; text-shadow: 0 4px 30px rgba(0,0,0,.3); }
+.tpl-photo .kicker { background: rgba(255,255,255,.2); backdrop-filter: blur(6px); }
+.credit { position: absolute; top: 28px; right: 32px; font-size: 16px; opacity: .65; }
+{% endblock %}
+{% block body %}
+<div class="photo" style="background-image:url('{{ photo_src }}')"></div>
+<div class="tint-{{ accent }}" style="display:contents"><div class="shade"></div></div>
+<div class="text">
+  <div class="kicker">{{ kicker }}</div>
+  <h1 class="{{ 'long' if headline|length > 28 }}">{{ headline }}</h1>
+  <p class="sub">{{ subline }}</p>
+  {{ points_list(points) }}
+</div>
+{% if photo_credit %}<div class="credit">Foto: {{ photo_credit }}</div>{% endif %}
+{% endblock %}

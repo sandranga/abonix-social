@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "macros.html" import check_icon, cross_icon %}
+{% block style %}
+.tpl-split h1 { font-size: 76px; }
+.tpl-split .sub { font-size: 34px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 56px; }
+.col { border-radius: 32px; padding: 40px 36px 44px; min-height: 560px; }
+.col h2 { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 30px; display: flex; align-items: center; gap: 14px; }
+.col ul { list-style: none; display: flex; flex-direction: column; gap: 26px; }
+.col li { display: flex; gap: 16px; font-size: 31px; line-height: 1.25; font-weight: 600; align-items: flex-start; }
+.col .ic { flex: none; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; margin-top: 2px; }
+.col .ic svg { width: 22px; height: 22px; }
+.before { background: rgba(255,255,255,.1); border: 2px dashed rgba(255,255,255,.35); }
+.before .ic { background: rgba(220,38,38,.85); }
+.after { background: #fff; color: var(--ink); box-shadow: 0 30px 70px rgba(15,23,42,.35); }
+.after h2 { color: var(--indigo); }
+.after .ic { background: var(--indigo); }
+.tag { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 6px 12px; border-radius: 8px; }
+.before .tag { background: rgba(255,255,255,.18); }
+.after .tag { background: rgba(79,70,229,.12); }
+{% endblock %}
+{% block body %}
+<div class="blob" style="width:520px;height:520px;left:-220px;top:-200px"></div>
+<div class="kicker">{{ kicker }}</div>
+<h1 class="{{ 'long' if headline|length > 28 }}">{{ headline }}</h1>
+<p class="sub">{{ subline }}</p>
+<div class="cols">
+  <div class="col before">
+    <h2>Înainte <span class="tag">Excel</span></h2>
+    <ul>{% for p in points %}<li><span class="ic">{{ cross_icon() }}</span><span>{{ p }}</span></li>{% endfor %}</ul>
+  </div>
+  <div class="col after">
+    <h2>Cu Abonix</h2>
+    <ul>{% for p in points_after %}<li><span class="ic">{{ check_icon() }}</span><span>{{ p }}</span></li>{% endfor %}</ul>
+  </div>
+</div>
+{% endblock %}

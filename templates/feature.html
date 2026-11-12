@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "macros.html" import points_list %}
+{% block style %}
+.tpl-feature h1 { font-size: 84px; }
+.shot-wrap { position: absolute; left: 0; right: 0; bottom: 150px; display: flex; justify-content: center; align-items: flex-end; }
+/* Desktop screenshot in a browser frame */
+.browser { width: 960px; border-radius: 22px; overflow: hidden; background: #fff;
+  box-shadow: 0 40px 90px rgba(15,23,42,.45), 0 0 0 1px rgba(255,255,255,.3); transform: rotate(-1.2deg); }
+.browser .bar { height: 46px; background: #e2e8f0; display: flex; align-items: center; gap: 10px; padding: 0 20px; }
+.browser .bar i { width: 14px; height: 14px; border-radius: 50%; background: #cbd5e1; display: block; }
+.browser .bar span { margin-left: 18px; height: 26px; flex: 1; border-radius: 8px; background: #fff;
+  font-size: 15px; color: #64748b; display: flex; align-items: center; padding-left: 14px; font-weight: 600; }
+.browser img { display: block; width: 100%; }
+/* Phone screenshot in a device frame */
+.phone { width: 360px; border-radius: 56px; padding: 14px; background: #0b1020;
+  box-shadow: 0 40px 90px rgba(15,23,42,.5), inset 0 0 0 2px #334155; transform: rotate(3deg); }
+.phone img { display: block; width: 100%; border-radius: 44px; }
+.with-phone .text-col { max-width: 560px; }
+.with-phone .shot-wrap { left: auto; right: 70px; bottom: 140px; }
+.with-phone h1 { font-size: 76px; }
+.with-phone .sub { font-size: 34px; }
+.with-phone .points li { font-size: 28px; }
+{% endblock %}
+{% block body %}
+<div class="blob" style="width:520px;height:520px;right:-180px;top:-160px"></div>
+<div class="ring" style="width:380px;height:380px;left:-150px;bottom:260px"></div>
+<div class="{{ 'with-phone' if screen_kind == 'phone' else '' }}" style="display:contents">
+  <div class="text-col">
+    <div class="kicker">{{ kicker }}</div>
+    <h1 class="{{ 'long' if headline|length > 28 }}">{{ headline }}</h1>
+    <p class="sub">{{ subline }}</p>
+    {% if screen_kind == 'phone' %}{{ points_list(points) }}{% endif %}
+  </div>
+  <div class="shot-wrap" style="{{ 'left:auto;right:70px;bottom:140px' if screen_kind == 'phone' }}">
+    {% if screen_kind == 'phone' %}
+      <div class="phone"><img src="{{ assets }}/screens/{{ screen }}" alt=""></div>
+    {% else %}
+      <div class="browser"><div class="bar"><i></i><i></i><i></i><span>clubultau.abonix.net</span></div>
+        <img src="{{ assets }}/screens/{{ screen }}" alt=""></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

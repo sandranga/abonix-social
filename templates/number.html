@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block style %}
+.tpl-number { justify-content: center; padding-bottom: 170px; }
+.big { font-size: 300px; line-height: .9; font-weight: 800; letter-spacing: -0.06em;
+  background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,.72) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.big.long { font-size: 210px; }
+.accent-light .big { background: linear-gradient(180deg, var(--indigo) 0%, var(--sky) 100%); -webkit-background-clip: text; background-clip: text; }
+.fact { font-size: 46px; line-height: 1.25; font-weight: 700; margin-top: 30px; max-width: 880px; }
+.tpl-number h1 { font-size: 56px; margin-top: 64px; padding-top: 48px; border-top: 3px solid rgba(255,255,255,.25); letter-spacing: -0.02em; }
+.tpl-number .sub { font-size: 34px; }
+{% endblock %}
+{% block body %}
+<div class="blob" style="width:700px;height:700px;right:-300px;top:-260px"></div>
+<div class="dots" style="left:84px;bottom:180px"></div>
+<div class="kicker" style="position:absolute;top:88px;left:84px">{{ kicker }}</div>
+<div class="big {{ 'long' if fact.number|length > 4 }}">{{ fact.number }}</div>
+<p class="fact">{{ fact.caption }}</p>
+<h1>{{ headline }}</h1>
+<p class="sub">{{ subline }}</p>
+{% endblock %}

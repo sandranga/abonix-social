@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% from "macros.html" import check_icon %}
+{% block style %}
+.tpl-offer h1 { font-size: 80px; }
+.card { margin-top: 54px; background: #fff; color: var(--ink); border-radius: 40px; padding: 52px 56px 56px;
+  box-shadow: 0 40px 90px rgba(15,23,42,.4); position: relative; }
+.plan { font-size: 34px; font-weight: 800; color: var(--indigo); text-transform: uppercase; letter-spacing: .06em; }
+.price { display: flex; align-items: baseline; gap: 16px; margin-top: 14px; }
+.price b { font-size: 168px; line-height: 1; font-weight: 800; letter-spacing: -0.05em; }
+.price span { font-size: 44px; font-weight: 700; color: var(--slate); }
+.limit { font-size: 32px; font-weight: 600; color: var(--slate); margin-top: 10px; }
+.card ul { list-style: none; margin-top: 36px; padding-top: 34px; border-top: 2px solid #e2e8f0; display: flex; flex-direction: column; gap: 20px; }
+.card li { display: flex; gap: 18px; align-items: center; font-size: 32px; font-weight: 600; }
+.card .ic { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--indigo); display: grid; place-items: center; }
+.card .ic svg { width: 24px; height: 24px; }
+.badge { position: absolute; top: -26px; right: 48px; background: var(--sky); color: #fff; font-size: 24px; font-weight: 800;
+  padding: 12px 22px; border-radius: 999px; text-transform: uppercase; letter-spacing: .05em; box-shadow: 0 10px 30px rgba(14,165,233,.5); }
+{% endblock %}
+{% block body %}
+<div class="blob" style="width:560px;height:560px;right:-220px;top:-180px"></div>
+<div class="ring" style="width:300px;height:300px;left:-120px;top:420px"></div>
+<div class="kicker">{{ kicker }}</div>
+<h1 class="{{ 'long' if headline|length > 28 }}">{{ headline }}</h1>
+<p class="sub">{{ subline }}</p>
+<div class="card">
+  {% if offer.key == 'growth' %}<div class="badge">Cel mai ales</div>{% endif %}
+  <div class="plan">{{ offer.name }}</div>
+  <div class="price"><b>{{ offer.price_ron }}</b><span>RON / lună</span></div>
+  <div class="limit">{{ offer.limit_label }}</div>
+  {% if points %}<ul>{% for p in points %}<li><span class="ic">{{ check_icon() }}</span>{{ p }}</li>{% endfor %}</ul>{% endif %}
+</div>
+{% endblock %}

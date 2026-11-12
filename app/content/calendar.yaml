@@ -1,0 +1,92 @@
+# Calendarul de teme. Zilele: 0 = luni ... 6 = duminică.
+# Pentru fiecare zi, pipeline-ul alege din `subjects` subiectul folosit cel mai
+# demult (rotație), ca să nu se repete. Subiectele pentru `feature` sunt chei
+# din product.yaml -> features; pentru `offer`, chei de plan sau `personal_trainer`;
+# pentru `number`, chei din facts.yaml.
+
+days:
+  0:
+    theme: feature
+    label: O funcționalitate Abonix
+    template: feature
+    guidance: >-
+      Prezintă o singură funcționalitate prin problema concretă pe care o
+      rezolvă pentru proprietarul sălii. Titlul spune beneficiul, nu numele
+      funcției. Imaginea arată captura reală din aplicație.
+    subjects: [reminders, checkin, members, dashboard, member_app, classes, freeze, promotions, marketing, plans, csv, join_requests, earnings, subdomain]
+  1:
+    theme: tip
+    label: Sfat practic pentru proprietari de săli
+    template: quote
+    guidance: >-
+      Un sfat practic, aplicabil de mâine, pentru cine conduce o sală sau un
+      club. Sfatul trebuie să fie valoros și fără Abonix; Abonix apare doar la
+      final, discret, ca unealtă care ajută. Titlul = sfatul, formulat scurt.
+    subjects:
+      - cum reduci abonamentele care expiră fără să fie reînnoite
+      - ce să le scrii membrilor înainte să le expire abonamentul
+      - cum aduci înapoi membrii care nu au mai venit de o lună
+      - cum faci recepția mai rapidă la orele aglomerate
+      - cum folosești promoțiile de fidelitate fără să pierzi bani
+      - cum gestionezi înghețarea abonamentelor în concediu
+      - cum îți organizezi programul de clase ca să nu rămână locuri goale
+      - ce cifre să urmărești lunar într-o sală mică
+      - cum le ceri membrilor numărul de telefon și acordul pentru mesaje
+      - cum treci de la caiet sau Excel la un program, fără haos
+  2:
+    theme: problem_solution
+    label: Problemă vs. soluție (Excel/caiet vs. Abonix)
+    template: split
+    guidance: >-
+      Compară concret cum arată o sarcină de zi cu zi „înainte” (Excel, caiet,
+      WhatsApp) și „cu Abonix”. Câte 3 puncte scurte pe fiecare parte (max 6
+      cuvinte fiecare). Fără exagerări.
+    subjects:
+      - aflarea abonamentelor care expiră săptămâna asta
+      - anunțarea membrilor că le expiră abonamentul
+      - verificarea abonamentului la intrare
+      - evidența plăților pe lună
+      - programarea la clase de grup
+      - înghețarea unui abonament
+      - trimiterea unui anunț către toți membrii
+  3:
+    theme: club_type
+    label: Pentru un tip de club
+    template: photo
+    guidance: >-
+      Vorbește direct unui tip de club, cu problemele lui specifice. Alege
+      2–3 funcționalități reale relevante pentru acel tip de club. Scrie și
+      `photo_query`: o căutare în engleză pentru o fotografie de stoc reală,
+      fără text în ea (ex. "ballet studio dancers practice mirror").
+    subjects:
+      - sală de fitness
+      - studio de dans
+      - studio de yoga sau pilates
+      - academie de arte marțiale
+      - club de înot
+      - club sportiv pentru copii
+      - after-school cu activități
+      - antrenor personal pe cont propriu
+      - studio de crossfit
+  4:
+    theme: offer
+    label: Ofertă sau preț
+    template: offer
+    guidance: >-
+      Prezintă un plan concret și ce primește clientul pentru prețul lui.
+      Prețul îl pune template-ul din fișa produsului; tu scrii titlul și 3
+      beneficii scurte (max 7 cuvinte fiecare) în `points`. Nu inventa
+      reduceri, perioade gratuite sau oferte limitate.
+    subjects: [growth, personal_trainer, essential, business]
+  5:
+    theme: number
+    label: O cifră din produs
+    template: number
+    guidance: >-
+      Pornește de la cifra dată (din facts.yaml) și explică ce înseamnă pentru
+      proprietarul sălii. Folosește exact cifra și sursa date. Nu inventa alte
+      statistici.
+    subjects: [sms_300, reminder_schedule, essential_75, growth_250, pt_50, checkin_seconds, business_750]
+  6:
+    theme: none
+    label: Fără postare

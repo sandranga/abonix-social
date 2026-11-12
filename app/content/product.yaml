@@ -1,0 +1,179 @@
+# Fișa produsului Abonix — singura sursă de adevăr pentru prețuri și funcționalități.
+# Copiată din repo-ul Abonix (frontend/src/pages/pricing/pricing.json și textele
+# din frontend/src/i18n/locales/ro.json). Actualizeaz-o când se schimbă prețurile.
+
+name: Abonix
+website: https://abonix.net
+whatsapp: "+40 750 415 082"
+facebook: https://www.facebook.com/abonixnet
+instagram: "@abonixnet"
+currency: RON
+billing: lunar, per organizație
+
+plans:
+  - key: essential
+    name: Essential
+    price_ron: 145
+    member_limit: 75
+    summary: >-
+      Bază de membri, planuri de abonament, istoric plăți și check-in cu cod QR.
+      Reînnoirile se gestionează manual, fără memento-uri automate.
+    includes_reminders: false
+  - key: growth
+    name: Growth
+    price_ron: 215
+    member_limit: 250
+    included_sms: 250
+    included_emails: 250
+    summary: >-
+      Tot ce include Essential, plus memento-uri automate pe email și SMS,
+      import/export CSV, promoții de fidelitate, campanii de marketing,
+      aplicația pentru membri, clase de grup cu rezervări și check-in pe tabletă.
+      Cel mai ales plan.
+    includes_reminders: true
+  - key: business
+    name: Business
+    price_ron: 425
+    member_limit: 750
+    included_sms: 400
+    included_emails: 400
+    summary: >-
+      Tot ce include Growth, plus rapoarte de încasări. Pentru cluburi
+      consolidate cu liste mari de membri.
+    includes_reminders: true
+
+personal_trainer:
+  name: Personal Trainer
+  price_ron: 69
+  client_limit: 50
+  users: 1
+  reminders_addon_ron: 30
+  reminders_addon_sms: 100
+  summary: >-
+    Pentru antrenori personali pe cont propriu: pachete de ședințe cu contor
+    automat, calendar pentru antrenamente 1-1 și grupuri mici, clienții se
+    programează singuri prin link sau cod QR, aplicație pentru clienți, istoric
+    plăți și încasări. Opțional, memento-uri: +30 RON/lună cu 100 SMS incluse.
+
+sms_overage_eur: 0.07
+sms_max_chars: 300
+above_750_members: Pentru peste 750 de membri, ofertă personalizată (contact).
+
+onboarding: >-
+  Abonix este un serviciu cu abonament. Completezi formularul pe abonix.net,
+  te contactăm, iar noi creăm spațiul organizației pe propriul subdomeniu și
+  contul de administrator. Nu există perioadă de probă gratuită.
+
+# Funcționalitățile reale. `screens` = capturi reale din assets/screens/
+# (desktop = 1356x838 etc., phone = capturi din aplicația membrilor, 376x805).
+features:
+  - key: dashboard
+    name: Panou cu statistici
+    plans: [essential, growth, business]
+    description: >-
+      Câte abonamente sunt active, câte expiră în 7, 14 sau 30 de zile, câte au
+      expirat. Încasările lunii față de luna trecută, membrii noi și pierduți,
+      rata de reînnoire.
+    screens: [panou.webp]
+  - key: members
+    name: Gestionarea membrilor
+    plans: [essential, growth, business]
+    description: >-
+      Toți membrii într-un singur loc, cu data expirării la vedere. Căutare după
+      nume, email sau telefon, filtre după status sau zile rămase. Acțiuni în
+      grup: memento-uri, prelungire, printare legitimații.
+    screens: [membri.webp, membru.webp]
+  - key: plans
+    name: Planuri de abonament
+    plans: [essential, growth, business]
+    description: >-
+      Definești o dată durata și prețul fiecărui plan; reînnoirile, încasările
+      și data de expirare se calculează singure.
+    screens: [abonamente.webp]
+  - key: checkin
+    name: Check-in cu cod QR
+    plans: [essential, growth, business]
+    description: >-
+      Codul QR al sălii stă la intrare. Membrul îl scanează, confirmă cu numărul
+      de telefon și află imediat dacă abonamentul e valabil — fără cont și fără
+      aplicație. Sau recepția scanează legitimația membrului. Fiecare intrare,
+      inclusiv cele refuzate, rămâne în istoric.
+    screens: [checkin.webp, app-checkin.webp]
+  - key: reminders
+    name: Memento-uri automate pe email și SMS
+    plans: [growth, business]
+    description: >-
+      Memento-uri cu 7 și 3 zile înainte de expirare, în ziua expirării și la
+      3 și 7 zile după — pe email, SMS sau ambele, alegi tu. Rulează zilnic,
+      automat. Același membru nu primește același memento de două ori în aceeași
+      zi. SMS-urile pot avea până la 300 de caractere și se numără ca un singur
+      SMS. Șabloanele de mesaj se personalizează.
+    screens: [memento.webp, memento-setari.webp, memento-sablon.webp]
+  - key: member_app
+    name: Aplicația pentru membri
+    plans: [growth, business]
+    description: >-
+      Membrii își văd abonamentul, data expirării, progresul spre zilele bonus,
+      plățile și intrările, direct de pe telefon. Fără magazin de aplicații: se
+      adaugă pe ecranul principal din browser.
+    screens: [app-acasa.webp, app-abonament.webp, app-plati.webp]
+  - key: classes
+    name: Clase de grup și rezervări
+    plans: [growth, business]
+    description: >-
+      Calendarul claselor oră cu oră, cu locurile rămase. Programul se scrie o
+      dată și se completează singur. Membrii rezervă din aplicație; poți trimite
+      un link sau un cod QR de invitație, iar cine nu e încă membru se înscrie cu
+      nume și telefon. La anulare, cei înscriși primesc automat email.
+    screens: [clase-calendar.webp, clase-program.webp, clase-invitatie.webp, app-clase.webp]
+  - key: promotions
+    name: Promoții de fidelitate
+    plans: [growth, business]
+    description: >-
+      Reguli de fidelitate pe regulile tale (de ex. la un număr de reînnoiri
+      primești zile bonus). Progresul fiecărui membru se calculează automat.
+    screens: [promotii.webp]
+  - key: marketing
+    name: Campanii de marketing
+    plans: [growth, business]
+    description: >-
+      Un anunț pe email sau SMS către toți membrii, către un segment filtrat sau
+      către cei aproape de un bonus de fidelitate.
+    screens: [marketing.webp]
+  - key: freeze
+    name: Înghețarea abonamentului
+    plans: [essential, growth, business]
+    description: >-
+      Membrul pleacă în concediu sau e accidentat? Îngheți abonamentul pe un
+      număr de zile, iar data de expirare se mută automat. Rezervările la clase
+      din perioada înghețată se anulează.
+    screens: [inghetare.webp]
+  - key: csv
+    name: Import și export CSV
+    plans: [growth, business]
+    description: >-
+      Muți lista de membri din Excel în Abonix dintr-un fișier CSV și o poți
+      exporta oricând.
+    screens: [csv.webp]
+  - key: join_requests
+    name: Cereri de înscriere
+    plans: [growth, business]
+    description: >-
+      Persoanele care își fac cont în aplicație și nu sunt încă în evidență ajung
+      într-o listă de cereri; le aprobi sau le respingi, iar la aprobare primesc
+      automat email.
+    screens: [cereri.webp]
+  - key: earnings
+    name: Rapoarte de încasări
+    plans: [business]
+    description: >-
+      Totaluri pe lună, pe plan de abonament și pe monedă. Doar banii încasați
+      efectiv; zilele bonus și corecțiile rămân în afara cifrelor.
+    screens: [incasari.webp]
+  - key: subdomain
+    name: Spațiu propriu, date izolate
+    plans: [essential, growth, business]
+    description: >-
+      Fiecare organizație are propriul subdomeniu (clubultau.abonix.net), iar
+      datele ei sunt complet separate de ale altor organizații.
+    screens: [panou.webp]

@@ -1,0 +1,22 @@
+# Runs next to Abonix on the same server, as a separate Compose project.
+# It opens no ports and shares nothing with the Abonix containers: Telegram
+# is polled outbound, images go to Cloudflare R2, posts go to Meta.
+name: abonix-social
+
+services:
+  social:
+    build: .
+    image: abonix-social:latest
+    container_name: abonix-social
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    # Chromium renders one image a day; this keeps it from starving Abonix.
+    mem_limit: 1g
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
