@@ -154,6 +154,9 @@ changes apply) and waits until the agent has started, or prints the last log
 lines if it hasn't. `data/` and `.env` are git-ignored and never touched.
 Pushing to GitHub deploys nothing by itself.
 
+**CI** (`.github/workflows/ci.yml`) runs the tests on every push to `main` and
+on every pull request, with no API keys. Check that it's green before pressing Deploy.
+
 ## Changing `.env`
 After any edit to `.env`, run `docker compose up -d --force-recreate`.
 `docker compose restart` (and sometimes plain `up -d`) keeps the old values.
