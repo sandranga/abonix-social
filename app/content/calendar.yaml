@@ -13,7 +13,7 @@ days:
       Prezintă o singură funcționalitate prin problema concretă pe care o
       rezolvă pentru proprietarul sălii. Titlul spune beneficiul, nu numele
       funcției. Imaginea arată captura reală din aplicație.
-    subjects: [reminders, checkin, members, dashboard, member_app, classes, freeze, promotions, marketing, plans, csv, join_requests, earnings, subdomain]
+    subjects: [reminders, checkin, members, dashboard, member_app, member_invites, kiosk, classes, freeze, promotions, marketing, plans, csv, join_requests, earnings, subdomain]
   1:
     theme: tip
     label: Sfat practic pentru proprietari de săli

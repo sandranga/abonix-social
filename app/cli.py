@@ -6,6 +6,8 @@
   python -m app.cli meta-check           plan step 1: token sees the Page and IG account
   python -m app.cli meta-test IMAGE      plan step 2: publish one test JPEG (asks first)
   python -m app.cli status
+  python -m app.cli sync-check [--abonix PATH] [--mark]
+                                         compare product.yaml with the Abonix repo
 """
 
 from __future__ import annotations
@@ -114,6 +116,26 @@ async def cmd_status(_args) -> None:
     print(p.status_text())
 
 
+async def cmd_sync_check(args) -> None:
+    from app import sync_check
+
+    repo = Path(args.abonix) if args.abonix else sync_check.default_repo()
+    try:
+        r = sync_check.run(repo)
+    except FileNotFoundError as e:
+        print(e)
+        sys.exit(2)
+    print(sync_check.format_report(r))
+    if args.mark:
+        if not r.ok:
+            print("\nNu mut synced_with_abonix: rezolvă întâi diferențele de mai sus.")
+            sys.exit(1)
+        sync_check.mark(r.head)
+        print(f"\nsynced_with_abonix = {r.head} în product.yaml.")
+    elif not r.ok:
+        sys.exit(1)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -130,9 +152,13 @@ def main() -> None:
     t.add_argument("image")
     t.add_argument("--url", help="skip upload, use an already public URL")
     sub.add_parser("status")
+    sc = sub.add_parser("sync-check")
+    sc.add_argument("--abonix", help="path to the Abonix repo (default: ../Abonix)")
+    sc.add_argument("--mark", action="store_true",
+                    help="after updating product.yaml: record the current Abonix commit as checked")
     args = ap.parse_args()
     fn = {"samples": cmd_samples, "draft": cmd_draft, "week": cmd_week, "meta-check": cmd_meta_check,
-          "meta-test": cmd_meta_test, "status": cmd_status}[args.cmd]
+          "meta-test": cmd_meta_test, "status": cmd_status, "sync-check": cmd_sync_check}[args.cmd]
     asyncio.run(fn(args))
 
 

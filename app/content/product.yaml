@@ -1,6 +1,12 @@
 # Fișa produsului Abonix — singura sursă de adevăr pentru prețuri și funcționalități.
 # Copiată din repo-ul Abonix (frontend/src/pages/pricing/pricing.json și textele
 # din frontend/src/i18n/locales/ro.json). Actualizeaz-o când se schimbă prețurile.
+#
+# `python -m app.cli sync-check` o compară cu repo-ul Abonix: prețuri, ce
+# funcționalități are fiecare plan, capturile de ecran și ce s-a schimbat în
+# Abonix de la commit-ul de mai jos. După ce o actualizezi, rulează
+# `python -m app.cli sync-check --mark` ca să muți commit-ul la zi.
+synced_with_abonix: 61b14c5
 
 name: Abonix
 website: https://abonix.net
@@ -97,7 +103,8 @@ features:
       Codul QR al sălii stă la intrare. Membrul îl scanează, confirmă cu numărul
       de telefon și află imediat dacă abonamentul e valabil — fără cont și fără
       aplicație. Sau recepția scanează legitimația membrului. Fiecare intrare,
-      inclusiv cele refuzate, rămâne în istoric.
+      inclusiv cele refuzate, rămâne în istoric, pe care îl vezi pe o zi, pe o
+      lună sau pe orice interval (azi, ieri, ultimele 7 zile, luna aceasta).
     screens: [checkin.webp, app-checkin.webp]
   - key: reminders
     name: Memento-uri automate pe email și SMS
@@ -115,8 +122,34 @@ features:
     description: >-
       Membrii își văd abonamentul, data expirării, progresul spre zilele bonus,
       plățile și intrările, direct de pe telefon. Fără magazin de aplicații: se
-      adaugă pe ecranul principal din browser.
+      instalează pe ecranul telefonului din browser, în unul-două tap-uri. Intră
+      cu emailul sau cu numărul de telefon și parola, și își pot schimba singuri
+      parola. Codul de intrare din aplicație se schimbă la fiecare 30 de secunde,
+      așa că o captură de ecran nu funcționează.
     screens: [app-acasa.webp, app-abonament.webp, app-plati.webp]
+  - key: member_invites
+    name: Invitații în aplicația pentru membri
+    plans: [growth, business]
+    description: >-
+      Îți aduci membrii în aplicație fără coduri de verificare: le trimiți o
+      invitație pe email sau SMS, deschid linkul, își aleg o parolă și gata. La
+      recepție, le arăți un cod QR pe ecran, îl scanează cu telefonul și intră pe
+      loc (codul e valabil 15 minute). Poți invita un singur membru, pe cei bifați
+      în listă sau, dintr-un singur clic, pe email, toți membrii activi care nu
+      folosesc încă aplicația. Tot cu un cod QR la recepție, un membru care și-a
+      uitat parola își alege una nouă. Invitațiile pe email și cu cod QR nu costă
+      nimic; cele prin SMS se scad din SMS-urile lunare ale sălii.
+    screens: [app-acasa.webp, membru.webp]
+  - key: kiosk
+    name: Tabletă de check-in la intrare
+    plans: [growth, business]
+    description: >-
+      O tabletă la intrare scanează codul din aplicația membrului și îi permite
+      intrarea, fără nimeni la recepție. Acceptă doar codul live, care se schimbă
+      la fiecare 30 de secunde. Merge pe o tabletă Android (recomandat cu Fully
+      Kiosk Browser) sau pe un iPad. Intrările înregistrate de tabletă apar în
+      același istoric.
+    screens: [app-checkin.webp, checkin.webp]
   - key: classes
     name: Clase de grup și rezervări
     plans: [growth, business]

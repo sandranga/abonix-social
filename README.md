@@ -45,6 +45,21 @@ go into the prompt so angles don't repeat.
 - `assets/screens/`: real screenshots, copied from Abonix `frontend/public/tour/`.
   Refresh them when the app changes.
 
+### Keeping the product sheet current
+Claude only writes about what's in `product.yaml`, so a new Abonix feature
+appears in posts only once it's added there. Check after Abonix releases:
+
+```bash
+.venv/Scripts/python -m app.cli sync-check     # expects the Abonix repo at ../Abonix (or --abonix PATH)
+```
+
+It compares prices and plan limits with Abonix's `pricing.json`, which plan has
+which feature, and the tour screenshots, then lists the Abonix commits since the
+sheet was last checked. It only reports and changes nothing. Add new features to
+`product.yaml` by hand (and to the Monday `subjects` in `calendar.yaml`), copy
+new screenshots, then run `sync-check --mark` to record the Abonix commit the
+sheet now matches.
+
 ## Setup
 
 ### 1. Telegram (5 minutes)
