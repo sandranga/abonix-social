@@ -135,8 +135,8 @@ docker compose logs -f
 
 Going live, in order:
 1. With `DRY_RUN=true`, approve a few drafts in Telegram. They are marked "published (DRY RUN)" and nothing is sent.
-2. `docker compose exec social python -m app.cli meta-check` passes.
-3. `docker compose exec social python -m app.cli meta-test /app/assets/...jpg` posts one test image (it asks first), then delete it.
+2. `docker compose exec -u social social python -m app.cli meta-check` passes.
+3. `docker compose exec -u social social python -m app.cli meta-test /app/assets/...jpg` posts one test image (it asks first), then delete it.
 4. Set `DRY_RUN=false` and run `docker compose up -d --force-recreate`.
 
 ## Deploying updates
