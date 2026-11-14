@@ -39,11 +39,16 @@ _env = Environment(
 
 
 def screen_kind(screen: str | None) -> str:
+    """desktop (landscape) -> browser frame, phone (tall) -> phone frame,
+    tablet (portrait but not phone-tall, like the entrance tablet) -> tablet frame."""
     if not screen:
         return "desktop"
     path = ASSETS_DIR / "screens" / screen
     with Image.open(path) as im:
-        return "phone" if im.height > im.width else "desktop"
+        ratio = im.height / im.width
+    if ratio <= 1:
+        return "desktop"
+    return "phone" if ratio > 1.6 else "tablet"
 
 
 def build_context(template: str, theme: str, subject: str, draft: dict[str, Any], photo_path: Path | None = None,

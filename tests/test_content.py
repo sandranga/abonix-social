@@ -27,3 +27,12 @@ def test_every_screen_file_exists():
 
 def test_allowed_prices_match_pricing_page():
     assert content.allowed_prices() == {145, 215, 425, 69, 30, 99}
+
+
+def test_screen_frames_follow_the_shape():
+    from app.images.render import screen_kind
+
+    assert screen_kind("panou.webp") == "desktop"
+    assert screen_kind("app-acasa.webp") == "phone"
+    assert screen_kind("extra/app-inghetare.webp") == "phone"
+    assert screen_kind("kiosk-scan.webp") == "tablet"  # the entrance tablet gets a tablet frame
