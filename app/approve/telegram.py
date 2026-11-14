@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from app.config import get_settings
+from app.generate.request import wants_music
 from app.images.providers import credit_line
 from app.models import Post, PostStatus
 
@@ -30,6 +31,7 @@ STATUS_LABEL = {
     PostStatus.approved: "✅ Aprobat",
     PostStatus.publishing: "📤 Se publică",
     PostStatus.published: "🎉 Publicat",
+    PostStatus.manual: "📲 Publicat manual",
     PostStatus.failed: "❌ Eșuat",
     PostStatus.skipped: "⏭ Sărit",
     PostStatus.expired: "⌛ Expirat",
@@ -99,7 +101,49 @@ def keyboard(post: Post) -> dict[str, Any]:
     ]
     if post.template in ("photo", "feature"):
         rows[1].append({"text": "🖼 Altă imagine", "callback_data": f"i:{tag}"})
+    rows.append([{"text": "📲 Public eu din aplicație", "callback_data": f"m:{tag}"}])
     return {"inline_keyboard": rows}
+
+
+MUSIC_NOTE = ("🎵 Muzica nu se poate pune prin API: Meta nu dă acces la melodiile din Instagram. "
+              "Apasă „📲 Public eu din aplicație”, iar eu îți trimit fișierele și textul; publici tu din "
+              "Instagram și alegi melodia acolo (o poți alege doar la creare, nu după publicare).")
+
+
+def captions(post: Post) -> tuple[str, str]:
+    c = post.content
+    ig = c["caption_ig"] + "\n\n" + " ".join(c["hashtags_ig"])
+    fb = c["caption_fb"] + ("\n\n" + " ".join(c["hashtags_fb"]) if c["hashtags_fb"] else "")
+    return ig, fb
+
+
+async def send_for_manual(api: "TelegramAPI", chat: int, post: Post) -> None:
+    """The files at full quality (as documents, not compressed photos) and the
+    captions as separate messages, ready to copy into the Instagram app."""
+    media = [Path(m) for m in (post.media_paths or [post.image_path])]
+    if len(media) == 1:
+        kind = "video/mp4" if media[0].suffix == ".mp4" else "image/jpeg"
+        with open(media[0], "rb") as f:
+            await api.call("sendDocument", chat_id=chat, files={"document": (media[0].name, f, kind)},
+                           caption=f"#{post.id}: fișierul de publicat")
+    else:
+        handles = [open(m, "rb") for m in media[:10]]
+        try:
+            docs = [{"type": "document", "media": f"attach://d{i}"} for i in range(len(handles))]
+            docs[-1]["caption"] = f"#{post.id}: {len(handles)} imagini, în ordinea din carusel"
+            await api.call("sendMediaGroup", chat_id=chat, media=docs,
+                           files={f"d{i}": (media[i].name, h, "image/jpeg") for i, h in enumerate(handles)})
+        finally:
+            for h in handles:
+                h.close()
+    ig, fb = captions(post)
+    await api.call("sendMessage", chat_id=chat, text=_truncate(ig, MESSAGE_MAX))
+    await api.call("sendMessage", chat_id=chat, text=_truncate(fb, MESSAGE_MAX))
+    steps = ("📲 Pași: salvează fișierele, deschide Instagram → postare nouă"
+             + (" (Reel)" if (post.format or "single") == "reel" else "")
+             + ", alege-le în ordine, apoi adaugă melodia și lipește textul de mai sus. "
+               "Pe Facebook, la fel cu al doilea text.")
+    await api.call("sendMessage", chat_id=chat, text=steps)
 
 
 class TelegramNotifier:
@@ -125,13 +169,14 @@ class TelegramNotifier:
             log.warning("no TELEGRAM_ALLOWED_CHAT_IDS; draft %s not sent", post.id)
             return None
         chat = self.chat_ids[0]
-        c = post.content
         fmt_label = {"carousel": " · CARUSEL", "reel": " · REEL"}.get(post.format or "single", "")
         head = [f"Draft #{post.id} (v{post.revision}){' · EXTRA' if post.extra else ''}{fmt_label}"
                 f" · {ZILE[post.for_date.weekday()]} {post.for_date:%d.%m}",
                 f"Temă: {post.theme} · {post.subject}"]
         if when:
             head.append(f"Se publică la: {when:%d.%m %H:%M} după aprobare")
+        if wants_music(post.request):
+            head.append("\n" + MUSIC_NOTE)
         if post.review_issues:
             head.append("\n⚠️ De verificat:\n• " + "\n• ".join(post.review_issues))
         if credit_line(post.photo):
@@ -162,8 +207,7 @@ class TelegramNotifier:
                 msg = await self.api.call("sendPhoto", chat_id=chat, caption=caption,
                                           files={"photo": (Path(post.image_path).name, f, "image/jpeg")})
             ids.append(msg["message_id"])
-        ig = c["caption_ig"] + "\n\n" + " ".join(c["hashtags_ig"])
-        fb = c["caption_fb"] + ("\n\n" + " ".join(c["hashtags_fb"]) if c["hashtags_fb"] else "")
+        ig, fb = captions(post)
         text = f"📸 Instagram:\n{ig}\n\n📘 Facebook:\n{fb}"
         if len(text) > MESSAGE_MAX:
             m = await self.api.call("sendMessage", chat_id=chat, text=_truncate(f"📸 Instagram:\n{ig}", MESSAGE_MAX))
@@ -294,6 +338,8 @@ class TelegramBot:
                     "/post reel de ce memento-urile cresc reînnoirile\n"
                     "/post foto pentru cluburile de înot, înscrierile de toamnă"))
                 return
+            if wants_music(arg):
+                await self.api.call("sendMessage", chat_id=chat, text=MUSIC_NOTE)
             await self.api.call("sendMessage", chat_id=chat, text="⏳ Citesc cererea și scriu postarea…")
             await self.pipeline.generate_custom(self.pipeline.today(), arg.strip())
         elif cmd == "/raport":
@@ -347,7 +393,8 @@ class TelegramBot:
             await self.api.call("answerCallbackQuery", callback_query_id=cq["id"],
                                 text="Draftul ăsta nu mai e activ.", show_alert=True)
             return
-        texts = {"a": "Aprobat ✅", "s": "Sărit ⏭", "r": "Regenerez 🔄", "i": "Caut altă imagine 🖼"}
+        texts = {"a": "Aprobat ✅", "s": "Sărit ⏭", "r": "Regenerez 🔄", "i": "Caut altă imagine 🖼",
+                 "m": "Îți trimit fișierele 📲"}
         await self.api.call("answerCallbackQuery", callback_query_id=cq["id"], text=texts.get(action, ""))
         if action == "a":
             await self.pipeline.approve(post_id)
@@ -357,6 +404,9 @@ class TelegramBot:
             await self.pipeline.regenerate(post_id)
         elif action == "i":
             await self.pipeline.regenerate(post_id, image_only=True)
+        elif action == "m":
+            await send_for_manual(self.api, chat, post)
+            await self.pipeline.mark_manual(post_id)
 
 
 def build(pipeline: Pipeline) -> tuple[TelegramNotifier, TelegramBot] | tuple[None, None]:

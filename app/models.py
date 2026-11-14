@@ -22,6 +22,7 @@ class PostStatus(str, enum.Enum):
     approved = "approved"      # queued for the publish time
     publishing = "publishing"
     published = "published"
+    manual = "manual"          # you posted it yourself from the app (📲); the bot never publishes it
     failed = "failed"          # gave up after max attempts
     skipped = "skipped"        # you pressed "Sar peste"
     expired = "expired"        # never approved, superseded by a newer draft

@@ -15,6 +15,7 @@ from sqlalchemy import or_, select
 
 from app import content, db
 from app.config import Settings, get_settings
+from app.generate.request import wants_music
 from app.generate.review import normalize, review
 from app.generate.schemas import PostDraft
 from app.generate.text import Brief, GenerationError, generate_draft
@@ -147,7 +148,8 @@ class Pipeline:
 
     def recent(self, limit: int = 30) -> list[Post]:
         with db.session() as s:
-            q = (select(Post).where(Post.status.in_([PostStatus.published, PostStatus.approved, PostStatus.draft,
+            q = (select(Post).where(Post.status.in_([PostStatus.published, PostStatus.manual,
+                                                   PostStatus.approved, PostStatus.draft,
                                                    PostStatus.publishing]))
                  .order_by(Post.for_date.desc(), Post.id.desc()).limit(limit))
             return list(s.scalars(q))
@@ -170,7 +172,7 @@ class Pipeline:
                 last_used[subj] = d
             if status == PostStatus.skipped and d >= recent:
                 skips[subj] = skips.get(subj, 0) + 1
-            elif status in (PostStatus.approved, PostStatus.publishing, PostStatus.published):
+            elif status in (PostStatus.approved, PostStatus.publishing, PostStatus.published, PostStatus.manual):
                 skips[subj] = 0
         return min(plan.subjects, key=lambda x: (skips.get(x, 0) >= 2, x in last_used,
                                                  last_used.get(x, date.min), plan.subjects.index(x)))
@@ -223,7 +225,8 @@ class Pipeline:
         since = self.today() - timedelta(days=120)
         with db.session() as s:
             posts = list(s.scalars(select(Post).where(
-                Post.status.in_([PostStatus.published, PostStatus.approved]), Post.for_date >= since)
+                Post.status.in_([PostStatus.published, PostStatus.manual, PostStatus.approved]),
+                Post.for_date >= since)
                 .order_by(Post.id.desc()).limit(60)))
         scored = [p for p in posts if score(p) is not None]
         chosen = sorted(scored, key=lambda p: score(p), reverse=True)[:limit] if scored else posts[:limit]
@@ -257,7 +260,8 @@ class Pipeline:
         with db.session() as s:
             locked = s.scalars(select(Post).where(
                 Post.for_date == d, Post.extra.is_(False),
-                Post.status.in_([PostStatus.approved, PostStatus.publishing, PostStatus.published]),
+                Post.status.in_([PostStatus.approved, PostStatus.publishing, PostStatus.published,
+                                 PostStatus.manual]),
             )).first()
             draft = s.scalars(select(Post).where(Post.for_date == d, Post.extra.is_(False),
                                                  Post.status == PostStatus.draft)).first()
@@ -342,9 +346,10 @@ class Pipeline:
                 prev_content = dict(post.content or {})
                 prev_photo = post.photo
                 usage = dict(post.usage or {})
+                silent = wants_music(post.request)
             try:
                 await self._build(d, plan, post_id, subject, base, feedback, image_only,
-                                  prev_content, prev_photo, usage, fmt)
+                                  prev_content, prev_photo, usage, fmt, silent)
             except Exception:
                 # Leave nothing stuck in "generating": drop a new row, restore a regenerated one.
                 with db.session() as s:
@@ -366,7 +371,8 @@ class Pipeline:
 
     async def _build(self, d: date, plan: content.DayPlan, post_id: int, subject: str, base: Post | None,
                      feedback: str | None, image_only: bool, prev_content: dict[str, Any],
-                     prev_photo: dict[str, Any] | None, usage: dict[str, Any], fmt: str = "single") -> None:
+                     prev_photo: dict[str, Any] | None, usage: dict[str, Any], fmt: str = "single",
+                     silent: bool = False) -> None:
         if image_only and prev_content:
             draft = PostDraft.model_validate(prev_content)
             issues = list(base.review_issues if base else [])
@@ -390,7 +396,8 @@ class Pipeline:
         images = await render_set(plan.template, plan.theme, subject, draft.model_dump(), out, photo_path,
                                   credit_line(photo_info), with_slides=fmt in ("carousel", "reel"))
         if fmt == "reel":
-            media = [await make_reel(images, out.with_suffix(".mp4"), pick_music(post_id))]
+            music = None if silent else pick_music(post_id)  # silent: you add the music in the app
+            media = [await make_reel(images, out.with_suffix(".mp4"), music)]
         else:
             media = images
 
@@ -498,6 +505,18 @@ class Pipeline:
         post = self.get(post_id)
         local = as_utc(post.scheduled_for).astimezone(self.s.tz)
         await self.notifier.mark(post, f"→ se publică {local:%d.%m %H:%M}" + (" (DRY RUN)" if self.s.dry_run else ""))
+        return post
+
+    async def mark_manual(self, post_id: int) -> Post:
+        """📲: you post it yourself from the Instagram/Facebook app, so the bot
+        must never publish it. Counts as the day's post."""
+        with db.session() as s:
+            post = s.get(Post, post_id)
+            if post.status != PostStatus.draft:
+                return post
+            post.status = PostStatus.manual
+        post = self.get(post_id)
+        await self.notifier.mark(post, "→ îl publici tu din aplicație; eu nu-l mai public")
         return post
 
     async def skip(self, post_id: int) -> Post:

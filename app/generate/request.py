@@ -63,6 +63,18 @@ def _valid(plan: RequestPlan) -> RequestPlan:
     return plan
 
 
+MUSIC_WORDS = ("muzic", "melodi", "piesa", "piese", "cantec", "music", "song", "sunet", "sound",
+               "audio", "trending", "trend", "coloana sonora")
+
+
+def wants_music(request: str | None) -> bool:
+    """Did the request ask for music? It can only be added in the Instagram app."""
+    if not request:
+        return False
+    plain = request.lower().translate(str.maketrans("ăâîșşțţ", "aaisstt"))
+    return any(w in plain for w in MUSIC_WORDS)
+
+
 def guess(request: str) -> RequestPlan:
     """No Claude: keywords anywhere in the request."""
     plain = request.lower().translate(str.maketrans("ăâîșşțţ", "aaisstt"))

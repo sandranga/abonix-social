@@ -16,6 +16,7 @@ straight to the Meta Graph API.
        -> rule checks + Claude review
        -> image / carousel slides / reel (Playwright -> JPEG, ffmpeg -> MP4)
        -> Telegram: ✅ Aprob  ⏭ Sar peste  🔄 Regenerează  🖼 Altă imagine
+                    📲 Public eu din aplicație (files + captions, you post it)
                     (or reply with instructions: "titlul mai scurt")
 18:30  approved -> upload to R2 -> Instagram (container -> publish) + Facebook
        retries 10 min / 30 min / 2 h, then alerts you; never publishes twice
@@ -40,9 +41,14 @@ Mon 09:00  weekly report in Telegram
 same slides as a 9:16 video (each slide over a blurred copy of itself, sliding
 crossfades, and music from `assets/music/` or a silent track) made with the ffmpeg bundled in
 `imageio-ffmpeg`. Telegram shows a carousel as an album and a reel as a video.
-**Music:** put licensed tracks (e.g. Pixabay Music) in `assets/music/`; reels
-rotate through them, trimmed to the video with a fade. Instagram's trending
-sounds can't be added: Meta's publishing API has no access to its music library.
+**Music:** put licensed tracks (Meta Sound Collection, Pixabay Music) in
+`assets/music/`; reels rotate through them, trimmed to the video with a fade.
+Instagram's own (trending) sounds can't be added through Meta's API, and music
+can't be added to a post after it's published. So when a `/post` request asks
+for music, the bot says so up front, keeps the reel silent, and you publish it
+yourself with **📲 Public eu din aplicație**: it sends the files at full quality
+and the captions to copy, and marks the draft "published manually" so the bot
+never posts it (it counts as the day's post).
 Slides can show a real app screenshot (phone, tablet or browser frame) when they
 talk about that screen. Colours come only from the Abonix palette
 (`frontend/src/theme.ts`): indigo, sky, dark, and the abonix.net indigo→sky gradient.
