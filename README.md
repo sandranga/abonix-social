@@ -12,28 +12,54 @@ outbound, images are hosted on Cloudflare R2 (`media.abonix.net`), and posts go
 straight to the Meta Graph API.
 
 ```
-08:00  calendar theme -> Claude (text, JSON) -> rule checks + Claude review
-       -> image (screenshot / stock photo) -> HTML template -> Playwright -> JPEG
+08:00  calendar theme + season + your rules + what worked -> Claude (text, JSON)
+       -> rule checks + Claude review
+       -> image / carousel slides / reel (Playwright -> JPEG, ffmpeg -> MP4)
        -> Telegram: ✅ Aprob  ⏭ Sar peste  🔄 Regenerează  🖼 Altă imagine
                     (or reply with instructions: "titlul mai scurt")
 18:30  approved -> upload to R2 -> Instagram (container -> publish) + Facebook
        retries 10 min / 30 min / 2 h, then alerts you; never publishes twice
+21:00  Insights for the last 30 days' posts -> what worked feeds the next drafts
+Mon 09:00  weekly report in Telegram
 ```
 
 ## Weekly calendar (`app/content/calendar.yaml`)
 
-| Day | Theme | Template |
-|---|---|---|
-| Mon | One Abonix feature | Real screenshot in a browser or phone frame |
-| Tue | Practical tip for owners | Big quote |
-| Wed | Excel/notebook vs Abonix | Split |
-| Thu | For one type of club | Stock photo (Pixabay) + headline |
-| Fri | A plan and its price | Offer card (price taken from `product.yaml`) |
-| Sat | A number from the product | Big number (only from `facts.yaml`) |
-| Sun | No post | |
+| Day | Theme | Cover template | Format |
+|---|---|---|---|
+| Mon | One Abonix feature | Real screenshot in a browser or phone frame | Carousel |
+| Tue | Practical tip for owners | Big quote | Reel |
+| Wed | Excel/notebook vs Abonix | Split | Carousel |
+| Thu | For one type of club | Stock photo (Pixabay) + headline | Single image |
+| Fri | A plan and its price | Offer card (price taken from `product.yaml`) | Single image |
+| Sat | A number from the product | Big number (only from `facts.yaml`) | Single image |
+| Sun | No post | | |
 
-Subjects rotate, so the least recently used one comes next. The last 30 posts
-go into the prompt so angles don't repeat.
+**Formats** (`format:` per day in `calendar.yaml`): a *carousel* is the cover,
+2–4 slides with one idea each, and a final "link în bio" slide. A *reel* is the
+same slides as a 9:16 video (each slide over a blurred copy of itself, a slow
+zoom, crossfades, a silent audio track) made with the ffmpeg bundled in
+`imageio-ffmpeg`. Telegram shows a carousel as an album and a reel as a video.
+
+Subjects rotate, so the least recently used one comes next. A skipped draft
+counts as used, and a subject you skip twice in 60 days goes behind all the
+others until you approve it again. The last 30 posts go into the prompt so
+angles don't repeat.
+
+## How it learns
+- **Your rules:** `/regula fără emoji în titlu` is applied to every post from
+  then on. `/reguli` lists them, `/sterge_regula N` removes one.
+- **Your instructions:** whatever you reply to a draft is remembered, and the
+  recent ones go into later prompts. Claude applies the general ones (tone,
+  length, style), not those about a single post.
+- **What worked:** every evening it pulls reach, saves, shares, likes and
+  comments for the last 30 days' posts. The three best (weighted interactions
+  per reach; saves and shares count triple) go into the prompt as style
+  examples. Until there are Insights, the latest approved posts are used.
+- **What you skipped:** the angles of recently skipped drafts are given as ones
+  to avoid.
+- **Reports:** `/raport` (last 30 days) and a weekly one on Mondays at 09:00,
+  by theme, by format, and the top posts.
 
 ## Content files (edit these, no code)
 
@@ -41,7 +67,12 @@ go into the prompt so angles don't repeat.
 - `app/content/product.yaml`: plans, prices and features. This is the only
   source of truth, and any RON amount not listed here is flagged.
 - `app/content/facts.yaml`: the only numbers allowed on "big number" posts.
-- `app/content/calendar.yaml`: themes, guidance and rotation subjects.
+- `app/content/calendar.yaml`: themes, guidance, rotation subjects, format per
+  day, and `seasons`: what owners are dealing with each month (January sign-ups,
+  summer freezes, September season start...), offered to Claude as an angle.
+- `app/content/stories.yaml`: real stories from clubs, used **only** with
+  `consent: true` (written agreement from the club). Claude uses them exactly as
+  written and names the club only if `name_ok: true`. Empty until you add one.
 - `assets/screens/`: real screenshots, copied from Abonix `frontend/public/tour/`.
   Refresh them when the app changes.
 
@@ -118,7 +149,9 @@ paused new keys). Without either key, everything except the Thursday post works.
    *Assign assets*: the Page (full control) and the Instagram account.
 5. *Generate token* for the app, with expiry **Never** and the permissions
    `pages_show_list, pages_read_engagement, pages_manage_posts, instagram_basic,
-   instagram_content_publish, business_management` → `META_ACCESS_TOKEN`.
+   instagram_content_publish, instagram_manage_insights, business_management`
+   → `META_ACCESS_TOKEN`. (`instagram_manage_insights` is for the daily stats;
+   without it everything else works and `/raport` only has Facebook numbers.)
 6. Run `python -m app.cli meta-check`. It prints the Page and the
    `instagram_business_account` id. Put them into `META_PAGE_ID` / `META_IG_USER_ID`.
 7. If the Page requires two-factor authentication, the person who generated
@@ -165,8 +198,10 @@ After any edit to `.env`, run `docker compose up -d --force-recreate`.
 `/azi` generate today's draft now · `/genereaza 2026-11-12` ·
 `/extra` one more post today, even if today's is already approved or published ·
 `/extra joi` an extra post with another day's theme (luni … sâmbătă) · `/status` ·
-`/pauza` / `/reia` stop/resume automation · `/verifica` Meta token + IG quota ·
-reply to a draft with text → regenerate with those instructions.
+`/post TEXT` a post written now from your own request (start with `carusel`, `reel` or `foto` to pick the format; default one image), e.g. `/post carusel 3 greșeli când ții abonamentele în Excel` · `/raport` what worked in the last 30 days · `/regula TEXT` · `/reguli` ·
+`/sterge_regula N` · `/pauza` / `/reia` stop/resume automation ·
+`/verifica` Meta token + IG quota · reply to a draft with text → regenerate with
+those instructions (and remember them for later posts).
 
 ## Local development
 
@@ -174,16 +209,19 @@ reply to a draft with text → regenerate with those instructions.
 py -3.12 -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt
 .venv/Scripts/python -m playwright install chromium
 .venv/Scripts/python -m pytest              # no keys needed
-.venv/Scripts/python -m app.cli samples     # renders every template into data/samples/
+.venv/Scripts/python -m app.cli samples     # every template, carousel slides and a reel into data/samples/
 .venv/Scripts/python -m app.cli draft --date 2026-11-09   # one real draft (needs Claude, plus Pixabay for Thursdays)
 .venv/Scripts/python -m app.cli week        # 7 drafts, plan step 3 check
 ```
 
 ## Costs (one post a day)
-Claude: roughly 30 × (writing + review + occasional fix pass), about $1/month at
-list prices. Pixabay: free. R2: free tier. Meta API: free.
+Claude: roughly 30 × (writing + review + occasional fix pass), about $1–2/month at
+list prices (the prompt is a little longer now: rules, examples, season).
+Pixabay: free. R2: free tier (a reel is ~2–3 MB). Meta API: free.
 
-## Later (plan step 8)
-Carousels, reels (3–5 rendered frames + ffmpeg), daily Insights, an AI image
-provider behind `ImageProvider`, and auto-publishing without approval once
-the drafts are consistently good.
+## Later
+An AI image provider behind `ImageProvider`, testing publish times and hooks
+against Insights, and auto-publishing without approval once the drafts are
+consistently good. Screenshots for the newest features (member invites, the
+entrance tablet) still need to be captured in Abonix and added to
+`assets/screens/` and `product.yaml`.

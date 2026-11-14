@@ -26,8 +26,12 @@ from app.config import get_settings
 
 def _print_draft(post) -> None:
     c = post.content
-    print(f"\n=== #{post.id} {post.for_date} [{post.theme} / {post.subject}] -> {post.image_path}")
+    print(f"\n=== #{post.id} {post.for_date} [{post.theme} / {post.subject} / {post.format}]")
+    for m in post.media_paths or [post.image_path]:
+        print(f"    {m}")
     print(f"TITLU: {c['headline']}\nSUBTITLU: {c['subline']}")
+    for i, sl in enumerate(c.get("slides") or [], start=2):
+        print(f"SLIDE {i}: {sl['title']} — {sl['body']}")
     if c.get("points"):
         print("PUNCTE:", " | ".join(c["points"]), ("|| " + " | ".join(c["points_after"])) if c.get("points_after") else "")
     print(f"\nIG:\n{c['caption_ig']}\n{' '.join(c['hashtags_ig'])}")
@@ -38,8 +42,9 @@ def _print_draft(post) -> None:
 
 
 async def cmd_samples(_args) -> None:
-    from app.images.render import render_post
-    from app.samples import SAMPLES, placeholder_photo
+    from app.images.render import html_to_jpegs, render_post, slide_pages
+    from app.images.video import make_reel
+    from app.samples import SAMPLES, SLIDES, placeholder_photo
 
     out = get_settings().data_dir / "samples"
     photo = placeholder_photo(out / "placeholder.jpg")
@@ -49,6 +54,12 @@ async def cmd_samples(_args) -> None:
                           photo if smp["template"] == "photo" else None,
                           "Fotograf" if smp["template"] == "photo" else None)
         print(p)
+    # A carousel's slides after the cover, and the same slides as a reel.
+    cover = out / "0-feature.jpg"
+    slides = await html_to_jpegs(slide_pages("feature", {**SAMPLES[0]["draft"], "slides": SLIDES}, out / "carousel"))
+    for s in slides:
+        print(s)
+    print(await make_reel([cover, *slides], out / "reel.mp4"))
 
 
 async def _local_pipeline():

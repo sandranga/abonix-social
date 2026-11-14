@@ -40,6 +40,12 @@ HELP = """Comenzi:
 /genereaza AAAA-LL-ZZ – generează draftul pentru o dată
 /extra – încă o postare azi, chiar dacă cea de azi e deja aprobată/publicată
 /extra joi – postare extra cu tema altei zile (luni … sâmbătă)
+/post TEXT – o postare scrisă acum după cererea ta; începe cu carusel, reel sau
+  foto ca să alegi formatul (implicit: o imagine), de ex.
+  /post carusel 3 greșeli când ții abonamentele în Excel
+/raport – ce a mers în ultimele 30 de zile (reach, salvări, distribuiri)
+/regula TEXT – o regulă pe care o respect la fiecare postare
+/reguli – regulile tale · /sterge_regula N – șterge regula N
 /status – ultimele postări și ce urmează
 /pauza – oprește generarea și publicarea automată
 /reia – pornește din nou
@@ -47,7 +53,8 @@ HELP = """Comenzi:
 /help – lista asta
 
 La un draft: apasă un buton sau răspunde (reply) la mesajul lui cu instrucțiuni,
-de ex. „titlul mai scurt, fără emoji”, și îl regenerez cu ele."""
+de ex. „titlul mai scurt, fără emoji”, și îl regenerez cu ele. Țin minte
+instrucțiunile și le aplic și la postările următoare când sunt generale."""
 
 
 ZILE = ["luni", "marți", "miercuri", "joi", "vineri", "sâmbătă", "duminică"]
@@ -58,6 +65,24 @@ def parse_weekday(arg: str) -> int | None:
     plain = str.maketrans("ăâîșşțţ", "aaisstt")
     a = arg.strip().lower().translate(plain)
     return next((i for i, z in enumerate(ZILE) if z.translate(plain) == a), None)
+
+
+# First word of /post -> (format, cover template). Without one: a single text image.
+POST_KINDS = {
+    "carusel": ("carousel", "quote"), "carousel": ("carousel", "quote"),
+    "reel": ("reel", "quote"), "video": ("reel", "quote"),
+    "foto": ("single", "photo"), "poza": ("single", "photo"), "imagine": ("single", "quote"),
+}
+
+
+def parse_post_request(arg: str) -> tuple[str, str, str]:
+    """'/post carusel 3 greșeli...' -> ('carousel', 'quote', '3 greșeli...')."""
+    plain = str.maketrans("ăâîșşțţ", "aaisstt")
+    first, _, rest = arg.strip().partition(" ")
+    kind = POST_KINDS.get(first.lower().translate(plain))
+    if kind and rest.strip():
+        return kind[0], kind[1], rest.strip()
+    return "single", "quote", arg.strip()
 
 
 def _truncate(s: str, n: int) -> str:
@@ -119,7 +144,8 @@ class TelegramNotifier:
             return None
         chat = self.chat_ids[0]
         c = post.content
-        head = [f"Draft #{post.id} (v{post.revision}){' · EXTRA' if post.extra else ''}"
+        fmt_label = {"carousel": " · CARUSEL", "reel": " · REEL"}.get(post.format or "single", "")
+        head = [f"Draft #{post.id} (v{post.revision}){' · EXTRA' if post.extra else ''}{fmt_label}"
                 f" · {ZILE[post.for_date.weekday()]} {post.for_date:%d.%m}",
                 f"Temă: {post.theme} · {post.subject}"]
         if when:
@@ -129,12 +155,31 @@ class TelegramNotifier:
         if credit_line(post.photo):
             head.append(f"\nFoto: {credit_line(post.photo)}")
         ids: list[int] = []
-        with open(post.image_path, "rb") as f:
-            msg = await self.api.call(
-                "sendPhoto", chat_id=chat, caption=_truncate("\n".join(head), PHOTO_CAPTION_MAX),
-                files={"photo": (Path(post.image_path).name, f, "image/jpeg")},
-            )
-        ids.append(msg["message_id"])
+        fmt = post.format or "single"
+        caption = _truncate("\n".join(head), PHOTO_CAPTION_MAX)
+        media = [Path(m) for m in (post.media_paths or [post.image_path])]
+        if fmt == "reel":
+            with open(media[0], "rb") as f:
+                msg = await self.api.call("sendVideo", chat_id=chat, caption=caption, supports_streaming="true",
+                                          files={"video": (media[0].name, f, "video/mp4")})
+            ids.append(msg["message_id"])
+        elif fmt == "carousel" and len(media) > 1:
+            handles = [open(m, "rb") for m in media[:10]]
+            try:
+                album = [{"type": "photo", "media": f"attach://p{i}", **({"caption": caption} if i == 0 else {})}
+                         for i in range(len(handles))]
+                msgs = await self.api.call("sendMediaGroup", chat_id=chat, media=album,
+                                           files={f"p{i}": (media[i].name, h, "image/jpeg")
+                                                  for i, h in enumerate(handles)})
+            finally:
+                for h in handles:
+                    h.close()
+            ids += [m["message_id"] for m in msgs]
+        else:
+            with open(post.image_path, "rb") as f:
+                msg = await self.api.call("sendPhoto", chat_id=chat, caption=caption,
+                                          files={"photo": (Path(post.image_path).name, f, "image/jpeg")})
+            ids.append(msg["message_id"])
         ig = c["caption_ig"] + "\n\n" + " ".join(c["hashtags_ig"])
         fb = c["caption_fb"] + ("\n\n" + " ".join(c["hashtags_fb"]) if c["hashtags_fb"] else "")
         text = f"📸 Instagram:\n{ig}\n\n📘 Facebook:\n{fb}"
@@ -175,7 +220,10 @@ class TelegramBot:
         offset = int(offset) if offset else None
         await self.api.call("setMyCommands", commands=[
             {"command": c, "description": d} for c, d in [
-                ("azi", "Generează draftul de azi"), ("status", "Ultimele postări"),
+                ("azi", "Generează draftul de azi"), ("extra", "Încă o postare azi"),
+                ("post", "O postare după cererea ta"),
+                ("status", "Ultimele postări"), ("raport", "Ce a mers în ultimele 30 de zile"),
+                ("reguli", "Regulile tale pentru postări"),
                 ("pauza", "Oprește automatizarea"), ("reia", "Pornește automatizarea"),
                 ("verifica", "Verifică Meta"), ("help", "Ajutor")]
         ])
@@ -255,6 +303,41 @@ class TelegramBot:
             label = f" cu tema de {ZILE[wd]}" if wd is not None else ""
             await self.api.call("sendMessage", chat_id=chat, text=f"⏳ Generez o postare extra{label}…")
             await self.pipeline.generate_extra(self.pipeline.today(), wd)
+        elif cmd == "/post":
+            if len(arg.strip()) < 5:
+                await self.api.call("sendMessage", chat_id=chat, text=(
+                    "Scrie ce postare vrei, de ex.\n"
+                    "/post anunță programul redus de Crăciun, 24–26 decembrie\n"
+                    "/post carusel 3 greșeli când ții abonamentele în Excel\n"
+                    "/post reel de ce memento-urile cresc reînnoirile\n"
+                    "/post foto pentru cluburile de înot, înscrierile de toamnă"))
+                return
+            fmt, template, request = parse_post_request(arg)
+            label = {"carousel": "un carusel", "reel": "un reel"}.get(fmt, "o postare")
+            await self.api.call("sendMessage", chat_id=chat, text=f"⏳ Scriu {label} după cererea ta…")
+            await self.pipeline.generate_custom(self.pipeline.today(), request, fmt, template)
+        elif cmd == "/raport":
+            await self.api.call("sendMessage", chat_id=chat, text=_truncate(self.pipeline.report_text(), MESSAGE_MAX))
+        elif cmd == "/regula":
+            if not arg.strip():
+                await self.api.call("sendMessage", chat_id=chat,
+                                    text="Folosește: /regula fără emoji în titlu\nO respect la fiecare postare.")
+                return
+            rules = self.pipeline.add_rule(arg)
+            await self.api.call("sendMessage", chat_id=chat, text=f"✅ Regula {len(rules)} salvată: {arg.strip()}")
+        elif cmd == "/reguli":
+            rules = self.pipeline.rules()
+            text = ("Regulile tale:\n" + "\n".join(f"{i}. {r}" for i, r in enumerate(rules, 1))
+                    + "\n\nȘterge una cu /sterge_regula N") if rules else \
+                "Nicio regulă încă. Adaugă una cu /regula TEXT, de ex. /regula fără emoji în titlu"
+            await self.api.call("sendMessage", chat_id=chat, text=text)
+        elif cmd == "/sterge_regula":
+            try:
+                removed = self.pipeline.remove_rule(int(arg.strip()))
+            except ValueError:
+                await self.api.call("sendMessage", chat_id=chat, text="Folosește: /sterge_regula N (vezi /reguli)")
+                return
+            await self.api.call("sendMessage", chat_id=chat, text=f"🗑 Am șters regula: {removed}")
         elif cmd == "/status":
             await self.api.call("sendMessage", chat_id=chat, text=self.pipeline.status_text())
         elif cmd == "/pauza":

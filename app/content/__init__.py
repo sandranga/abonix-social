@@ -41,6 +41,9 @@ def facts() -> dict[str, dict[str, str]]:
     return _yaml("facts.yaml")["facts"]
 
 
+FORMATS = ("single", "carousel", "reel")
+
+
 @dataclass(frozen=True)
 class DayPlan:
     weekday: int
@@ -49,6 +52,38 @@ class DayPlan:
     template: str
     guidance: str
     subjects: list[str]
+    format: str = "single"
+
+
+CUSTOM = "custom"
+
+
+def custom_plan(request: str, fmt: str = "single", template: str = "quote") -> DayPlan:
+    """A one-off plan for /post: your request is the brief."""
+    guidance = (
+        "Postare cerută acum de editor. Cererea lui, de respectat întocmai: «" + request.strip() + "». "
+        "Respectă brand book-ul și fișa produsului ca la orice postare: dacă cererea presupune ceva "
+        "ce nu e în fișă (funcționalități, prețuri, oferte, cifre), nu inventa; scrie doar ce e adevărat."
+    )
+    if template == "photo":
+        guidance += (" Scrie și `photo_query`: o căutare în engleză pentru o fotografie de stoc reală, "
+                     "fără text în ea, potrivită cu subiectul.")
+    return DayPlan(weekday=-1, theme=CUSTOM, label="Postare la cerere", template=template,
+                   guidance=guidance, subjects=[request.strip()], format=fmt)
+
+
+def season(month: int) -> dict[str, Any] | None:
+    """The seasonal context for a month (calendar.yaml -> seasons)."""
+    return next((s for s in calendar().get("seasons") or [] if month in s.get("months", [])), None)
+
+
+@lru_cache
+def stories() -> list[dict[str, Any]]:
+    """Real club stories that may be used: only those with written consent."""
+    path = CONTENT_DIR / "stories.yaml"
+    if not path.is_file():
+        return []
+    return [s for s in (_yaml("stories.yaml").get("stories") or []) if s.get("consent") is True]
 
 
 def day_plan(d: date) -> DayPlan | None:
@@ -77,6 +112,7 @@ def weekday_plan(wd: int) -> DayPlan | None:
         template=entry["template"],
         guidance=entry["guidance"].strip(),
         subjects=list(entry.get("subjects") or []),
+        format=entry.get("format", "single"),
     )
 
 

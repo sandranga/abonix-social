@@ -45,26 +45,54 @@ class FakeMeta:
         self.fail_fb_times = fail_fb_times
         self.ig_published = 0
         self.fb_published = 0
+        self.calls: list[tuple] = []  # (method, args) of every create/publish
+        self.insights = {"reach": 200, "likes": 10, "comments": 2, "saved": 6, "shares": 3}
 
     async def publishing_limit(self):
         return {"quota_usage": 0, "quota_total": 100}
 
     async def create_ig_container(self, url, caption, alt_text=None):
+        self.calls.append(("ig_image", url, alt_text))
+        return "C1"
+
+    async def create_ig_carousel(self, urls, caption, alt_text=None):
+        self.calls.append(("ig_carousel", list(urls), alt_text))
+        return "C1"
+
+    async def create_ig_reel(self, url, caption):
+        self.calls.append(("ig_reel", url))
         return "C1"
 
     async def wait_ig_container(self, cid, **kw):
+        self.calls.append(("wait", kw.get("timeout_s")))
         return None
 
     async def publish_ig_container(self, cid):
         self.ig_published += 1
         return "IG1"
 
-    async def publish_facebook_photo(self, url, message):
+    def _fb(self, kind, *args):
         if self.fail_fb_times:
             self.fail_fb_times -= 1
             raise MetaError("temporary", retryable=True)
+        self.calls.append((kind, *args))
         self.fb_published += 1
         return "FB1"
+
+    async def publish_facebook_photo(self, url, message):
+        return self._fb("fb_photo", url)
+
+    async def publish_facebook_carousel(self, urls, message):
+        return self._fb("fb_carousel", list(urls))
+
+    async def publish_facebook_video(self, url, description):
+        return self._fb("fb_video", url)
+
+    async def ig_insights(self, media_id):
+        return dict(self.insights)
+
+    async def fb_post_stats(self, post_id):
+        return {"reactions": 4, "comments": 1, "shares": 1}
 
 
 def make(settings, tmp_path, **kw):

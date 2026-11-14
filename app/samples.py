@@ -52,6 +52,13 @@ SAMPLES: list[dict] = [
 ]
 
 
+SLIDES = [
+    {"title": "Membrii uită, nu pleacă", "body": "Cei mai mulți nu renunță la sală. Doar le expiră abonamentul și nimeni nu le amintește."},
+    {"title": "Memento cu 7 zile înainte", "body": "Abonix trimite singur email sau SMS cu 7 și 3 zile înainte de expirare, apoi în ziua expirării."},
+    {"title": "Tu doar vezi cine a reînnoit", "body": "Fără telefoane date pe rând și fără liste în Excel."},
+]
+
+
 def placeholder_photo(path: Path) -> Path:
     """A synthetic 'photo' (gradient + shapes) so the photo template can be
     checked without a stock-photo key."""

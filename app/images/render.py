@@ -28,6 +28,7 @@ KICKERS = {
     "club_type": "Pentru cluburi",
     "offer": "Prețuri",
     "number": "Pe scurt",
+    "custom": "Abonix",
 }
 
 _env = Environment(
@@ -86,28 +87,62 @@ def render_html(template: str, ctx: dict[str, Any]) -> str:
     return _env.get_template(f"{template}.html").render(**ctx)
 
 
-async def html_to_jpeg(html: str, out: Path, quality: int = 90) -> Path:
-    out.parent.mkdir(parents=True, exist_ok=True)
+async def html_to_jpegs(pages: list[tuple[str, Path]], quality: int = 90) -> list[Path]:
+    """Renders several HTML pages to JPEGs with one browser."""
+    outs = []
     # Written to disk (not set_content) so file:// assets resolve.
     with tempfile.TemporaryDirectory() as tmp:
-        page_file = Path(tmp) / "post.html"
-        page_file.write_text(html, encoding="utf-8")
         async with async_playwright() as p:
             browser = await p.chromium.launch(args=["--allow-file-access-from-files"])
             try:
                 page = await browser.new_page(viewport={"width": WIDTH, "height": HEIGHT}, device_scale_factor=1)
-                await page.goto(page_file.as_uri(), wait_until="networkidle")
-                await page.evaluate("document.fonts.ready")
-                png = await page.screenshot(type="png", full_page=False)
+                for i, (html, out) in enumerate(pages):
+                    page_file = Path(tmp) / f"page{i}.html"
+                    page_file.write_text(html, encoding="utf-8")
+                    await page.goto(page_file.as_uri(), wait_until="networkidle")
+                    await page.evaluate("document.fonts.ready")
+                    png = await page.screenshot(type="png", full_page=False)
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    img = Image.open(io.BytesIO(png)).convert("RGB")  # JPEG, no alpha (Instagram requirement)
+                    img.save(out, "JPEG", quality=quality, optimize=True, progressive=True)
+                    log.info("rendered %s", out)
+                    outs.append(out)
             finally:
                 await browser.close()
-    img = Image.open(io.BytesIO(png)).convert("RGB")  # JPEG, no alpha (Instagram requirement)
-    img.save(out, "JPEG", quality=quality, optimize=True, progressive=True)
-    log.info("rendered %s", out)
-    return out
+    return outs
+
+
+async def html_to_jpeg(html: str, out: Path, quality: int = 90) -> Path:
+    return (await html_to_jpegs([(html, out)], quality))[0]
 
 
 async def render_post(template: str, theme: str, subject: str, draft: dict[str, Any], out: Path,
                       photo_path: Path | None = None, photo_credit: str | None = None) -> Path:
     ctx = build_context(template, theme, subject, draft, photo_path, photo_credit)
     return await html_to_jpeg(render_html(template, ctx), out)
+
+
+def slide_pages(theme: str, draft: dict[str, Any], out_stem: Path) -> list[tuple[str, Path]]:
+    """The slides after the cover: one per `slides` item, then the "link în bio" slide."""
+    slides = draft.get("slides") or []
+    total = len(slides) + 2  # cover + slides + final
+    accent = draft.get("accent") or "indigo"
+    base = {"assets": ASSETS_DIR.as_uri(), "accent": accent, "kicker": KICKERS.get(theme, "Abonix"), "total": total}
+    pages = []
+    for i, sl in enumerate(slides, start=2):
+        ctx = {**base, "template": "slide", "index": i, "title": sl["title"], "body": sl["body"]}
+        pages.append((render_html("slide", ctx), out_stem.with_name(f"{out_stem.name}-{i}.jpg")))
+    ctx = {**base, "template": "cta", "index": total}
+    pages.append((render_html("cta", ctx), out_stem.with_name(f"{out_stem.name}-{total}.jpg")))
+    return pages
+
+
+async def render_set(template: str, theme: str, subject: str, draft: dict[str, Any], cover: Path,
+                     photo_path: Path | None = None, photo_credit: str | None = None,
+                     with_slides: bool = False) -> list[Path]:
+    """The cover, plus (for carousels and reels) the slides, all with one browser."""
+    ctx = build_context(template, theme, subject, draft, photo_path, photo_credit)
+    pages = [(render_html(template, ctx), cover)]
+    if with_slides:
+        pages += slide_pages(theme, draft, cover.with_suffix(""))
+    return await html_to_jpegs(pages)

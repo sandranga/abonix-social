@@ -1,0 +1,19 @@
+# Povești reale de la cluburi care folosesc Abonix. Intră în postări DOAR cele
+# cu `consent: true`, adică doar dacă clubul a fost de acord în scris să fie
+# menționat. Fără date despre membri. Scrie exact ce ai voie să spui: Claude nu
+# adaugă nimic peste.
+#
+# Exemplu (șterge `#` din fața liniilor ca să-l folosești):
+# - key: studio-dans-cluj
+#   consent: true            # acordul clubului, primit pe 2026-11-20 pe email
+#   club: Studio de dans din Cluj
+#   name_ok: false           # true = putem scrie numele clubului
+#   quote: >-
+#     „Înainte sunam fiecare părinte când expira abonamentul. Acum pleacă singure
+#     memento-urile, iar noi doar vedem cine a reînnoit.”
+#   facts:
+#     - folosește Abonix din septembrie 2026
+#     - 120 de cursanți
+#   features: [reminders, member_app]
+
+stories: []

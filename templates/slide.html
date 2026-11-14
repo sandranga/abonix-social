@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block style %}
+.tpl-slide { justify-content: center; padding-bottom: 170px; }
+.tpl-slide .count { position: absolute; top: 88px; right: 84px; font-size: 28px; font-weight: 700; opacity: .7; letter-spacing: .04em; }
+.tpl-slide .num { font-size: 210px; line-height: .8; font-weight: 800; opacity: .18; letter-spacing: -0.04em; }
+.tpl-slide h1 { font-size: 96px; margin-top: 18px; }
+.tpl-slide h1.long { font-size: 80px; }
+.tpl-slide .body { font-size: 46px; line-height: 1.32; font-weight: 500; margin-top: 40px; opacity: .95; max-width: 900px; }
+.tpl-slide .rule { width: 140px; height: 10px; border-radius: 10px; background: var(--sky-light); margin-top: 44px; }
+.accent-sky.tpl-slide .rule { background: #fff; }
+{% endblock %}
+{% block body %}
+<div class="blob" style="width:560px;height:560px;left:-220px;top:-180px"></div>
+<div class="ring" style="width:420px;height:420px;right:-160px;bottom:220px"></div>
+<div class="kicker" style="position:absolute;top:88px;left:84px">{{ kicker }}</div>
+<div class="count">{{ index }} / {{ total }}</div>
+<div class="num">{{ '%02d' % (index - 1) }}</div>
+<h1 class="{{ 'long' if title|length > 28 }}">{{ title }}</h1>
+<div class="rule"></div>
+<p class="body">{{ body }}</p>
+{% endblock %}

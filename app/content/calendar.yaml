@@ -3,12 +3,16 @@
 # demult (rotație), ca să nu se repete. Subiectele pentru `feature` sunt chei
 # din product.yaml -> features; pentru `offer`, chei de plan sau `personal_trainer`;
 # pentru `number`, chei din facts.yaml.
+#
+# `format`: single (o imagine), carousel (copertă + 2-4 slide-uri + slide de
+# final „link în bio”) sau reel (aceleași slide-uri, animate într-un video 9:16).
 
 days:
   0:
     theme: feature
     label: O funcționalitate Abonix
     template: feature
+    format: carousel
     guidance: >-
       Prezintă o singură funcționalitate prin problema concretă pe care o
       rezolvă pentru proprietarul sălii. Titlul spune beneficiul, nu numele
@@ -18,6 +22,7 @@ days:
     theme: tip
     label: Sfat practic pentru proprietari de săli
     template: quote
+    format: reel
     guidance: >-
       Un sfat practic, aplicabil de mâine, pentru cine conduce o sală sau un
       club. Sfatul trebuie să fie valoros și fără Abonix; Abonix apare doar la
@@ -37,6 +42,7 @@ days:
     theme: problem_solution
     label: Problemă vs. soluție (Excel/caiet vs. Abonix)
     template: split
+    format: carousel
     guidance: >-
       Compară concret cum arată o sarcină de zi cu zi „înainte” (Excel, caiet,
       WhatsApp) și „cu Abonix”. Câte 3 puncte scurte pe fiecare parte (max 6
@@ -90,3 +96,46 @@ days:
   6:
     theme: none
     label: Fără postare
+
+# Contextul sezonier: ce trăiește proprietarul sălii în luna respectivă. Intră
+# în brief ca unghi posibil, nu ca obligație. Fără funcționalități sau oferte noi:
+# doar situații reale, legate de funcționalitățile din product.yaml.
+seasons:
+  - months: [1]
+    name: Ianuarie, rezoluțiile de Anul Nou
+    hint: >-
+      Val de membri noi și de reveniri. Mulți se înscriu pe o lună și nu mai
+      reînnoiesc în februarie. Momentul pentru evidență curată și memento-uri
+      înainte de expirare.
+  - months: [2]
+    name: Februarie, primele abonamente expirate
+    hint: >-
+      Expiră abonamentele făcute în ianuarie. Cine nu e anunțat la timp nu mai
+      revine. Unghi: reînnoiri, memento-uri, membri care nu au mai venit.
+  - months: [3, 4, 5]
+    name: Primăvara, pregătirea pentru vară
+    hint: >-
+      Crește interesul pentru fitness, înot și clase de grup. Clasele se umplu:
+      rezervări, locuri rămase, program clar.
+  - months: [6, 7, 8]
+    name: Vara, concedii și vacanță
+    hint: >-
+      Membrii pleacă în concediu și cer înghețarea abonamentului; cluburile de
+      copii și after-school-urile au program de vacanță. Unghi: înghețare,
+      anunțuri către membri, program de clase schimbat.
+  - months: [9]
+    name: Septembrie, începe sezonul
+    hint: >-
+      Începe școala și sezonul la dans, arte marțiale, înot, cluburi de copii și
+      after-school. Multe înscrieri noi în câteva săptămâni: invitații în
+      aplicație, import din Excel, clase noi.
+  - months: [10, 11]
+    name: Toamna, sezon plin
+    hint: >-
+      Sălile sunt pline, recepția e aglomerată la orele de vârf. Unghi:
+      check-in rapid, tableta de la intrare, clase fără locuri goale.
+  - months: [12]
+    name: Decembrie, finalul de an
+    hint: >-
+      Sărbători, program redus, bilanțul anului. Unghi: încasările pe lună,
+      cifrele anului, pregătirea pentru valul din ianuarie.

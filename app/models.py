@@ -40,12 +40,22 @@ class Post(Base):
     # Extra posts (/extra) come on top of the daily one: they never block it,
     # and the daily one never blocks them.
     extra: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    # single (one image), carousel (several images) or reel (a video made of the slides)
+    format: Mapped[str] = mapped_column(String(20), default="single", server_default="single")
 
     content: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     review_issues: Mapped[list[str]] = mapped_column(JSON, default=list)
-    photo: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)  # pexels id, photographer...
-    image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    photo: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)  # stock photo id, photographer...
+    image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)  # the cover (first slide)
     image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Every file that gets published, in order: the slides (carousel) or the video (reel).
+    media_paths: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    media_urls: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    # Instructions you gave when regenerating (reply to a draft), oldest first.
+    feedback: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    # Meta Insights: {"ig": {...}, "fb": {...}}, refreshed daily for 30 days.
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, server_default="{}")
+    metrics_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     telegram_chat_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     telegram_message_ids: Mapped[list[int]] = mapped_column(JSON, default=list)

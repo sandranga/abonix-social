@@ -41,7 +41,9 @@ reînnoit nimeni. Nu sunt oameni tehnici.
 - Promisiuni de rezultate: „îți dublezi încasările”, „crești cu 50%”, „zero abonamente pierdute”.
 - Nume de concurenți. Comparații cu alte programe concrete (comparăm doar cu
   Excel, caietul și WhatsApp-ul).
-- Date despre membri reali, săli reale sau clienți reali ai Abonix.
+- Date despre membri reali, săli reale sau clienți reali ai Abonix. Singura
+  excepție: poveștile primite în brief sub „Povești reale cu acord”, folosite
+  exact cum sunt scrise (citatul, faptele, numele clubului doar dacă name_ok).
 
 ## Ce NU face Abonix (nu promite asta)
 Plăți online / încasare card, facturare automată, integrare cu turnichete,

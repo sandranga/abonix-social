@@ -29,6 +29,8 @@ def good_draft(**over: Any) -> PostDraft:
         alt_text="Ecranul de setări al memento-urilor din Abonix.",
         screen="memento-setari.webp", photo_query="ballet dancers studio", accent="indigo",
         hook="memento-urile automate salvează reînnoirile",
+        slides=[{"title": "Membrii uită, nu pleacă", "body": "Le expiră abonamentul și nimeni nu le amintește."},
+                {"title": "Memento cu 7 zile înainte", "body": "Abonix trimite singur email sau SMS înainte de expirare."}],
     )
     base.update(over)
     return PostDraft(**base)

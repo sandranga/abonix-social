@@ -1,4 +1,4 @@
-"""Puts the final JPEG at a public URL, which Meta needs to download it.
+"""Puts the final JPEGs / MP4 at a public URL, which Meta needs to download them.
 
 Production: Cloudflare R2 bucket served on media.abonix.net (a custom domain
 on the bucket), so nothing on the Abonix server is exposed or changed.
@@ -16,6 +16,10 @@ from app.config import get_settings
 
 class StorageError(RuntimeError):
     pass
+
+
+def content_type(path: Path) -> str:
+    return {".mp4": "video/mp4", ".png": "image/png"}.get(path.suffix.lower(), "image/jpeg")
 
 
 class MediaStore(Protocol):
@@ -41,7 +45,7 @@ class R2Store:
     def _put_sync(self, local: Path, key: str) -> None:
         self.s3.upload_file(
             str(local), self.bucket, key,
-            ExtraArgs={"ContentType": "image/jpeg", "CacheControl": "public, max-age=31536000, immutable"},
+            ExtraArgs={"ContentType": content_type(local), "CacheControl": "public, max-age=31536000, immutable"},
         )
 
     async def put(self, local: Path, key: str) -> str:

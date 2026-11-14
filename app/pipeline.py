@@ -4,6 +4,7 @@ Telegram approval -> scheduled, idempotent publishing to Facebook + Instagram.""
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
@@ -18,7 +19,8 @@ from app.generate.review import normalize, review
 from app.generate.schemas import PostDraft
 from app.generate.text import Brief, GenerationError, generate_draft
 from app.images.providers import ImageError, ImageProvider, credit_line
-from app.images.render import render_post
+from app.images.render import render_set
+from app.images.video import make_reel
 from app.models import KV, Post, PostStatus, PublishLog
 from app.publish.meta import MetaClient, MetaError
 from app.publish.storage import MediaStore
@@ -55,6 +57,39 @@ def as_utc(dt: datetime | None) -> datetime | None:
     if dt is None:
         return None
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+
+
+def reach(p: Post) -> int:
+    return int(((p.metrics or {}).get("ig") or {}).get("reach") or 0)
+
+
+def saves(p: Post) -> int:
+    return int(((p.metrics or {}).get("ig") or {}).get("saved") or 0)
+
+
+def shares(p: Post) -> int:
+    m = p.metrics or {}
+    return int((m.get("ig") or {}).get("shares") or 0) + int((m.get("fb") or {}).get("shares") or 0)
+
+
+def interactions(p: Post) -> int:
+    """Everything people did with the post, saves and shares weighted up:
+    they say "this was worth keeping/sending", which a like doesn't."""
+    ig = (p.metrics or {}).get("ig") or {}
+    fb = (p.metrics or {}).get("fb") or {}
+    return (int(ig.get("likes") or 0) + 2 * int(ig.get("comments") or 0)
+            + 3 * int(ig.get("saved") or 0) + 3 * int(ig.get("shares") or 0)
+            + int(fb.get("reactions") or 0) + 2 * int(fb.get("comments") or 0) + 3 * int(fb.get("shares") or 0))
+
+
+def score(p: Post) -> float | None:
+    """Weighted interactions per reached account; None until there is reach."""
+    r = reach(p)
+    return interactions(p) / r if r else None
+
+
+def avg(xs: list[float]) -> float:
+    return sum(xs) / len(xs) if xs else 0.0
 
 
 class Pipeline:
@@ -118,17 +153,83 @@ class Pipeline:
             return list(s.scalars(q))
 
     def pick_subject(self, plan: content.DayPlan) -> str:
-        """Rotation: the subject of this theme used longest ago (never used first)."""
+        """Rotation: the subject of this theme used longest ago (never used first).
+        A skipped draft counts as used, so the subject goes to the back of the
+        line; a subject you skipped twice in 60 days, with no approval since,
+        comes only after all the others."""
         with db.session() as s:
             rows = s.execute(
-                select(Post.subject, Post.for_date)
-                .where(Post.theme == plan.theme, Post.status.notin_([PostStatus.skipped, PostStatus.expired]))
+                select(Post.subject, Post.for_date, Post.status)
+                .where(Post.theme == plan.theme, Post.status != PostStatus.expired)
             ).all()
         last_used: dict[str, date] = {}
-        for subj, d in rows:
+        skips: dict[str, int] = {}
+        recent = self.today() - timedelta(days=60)
+        for subj, d, status in sorted(rows, key=lambda r: r[1]):
             if subj not in last_used or d > last_used[subj]:
                 last_used[subj] = d
-        return min(plan.subjects, key=lambda x: (x in last_used, last_used.get(x, date.min), plan.subjects.index(x)))
+            if status == PostStatus.skipped and d >= recent:
+                skips[subj] = skips.get(subj, 0) + 1
+            elif status in (PostStatus.approved, PostStatus.publishing, PostStatus.published):
+                skips[subj] = 0
+        return min(plan.subjects, key=lambda x: (skips.get(x, 0) >= 2, x in last_used,
+                                                 last_used.get(x, date.min), plan.subjects.index(x)))
+
+    # ------------------------------------------------------------- learning
+    def rules(self) -> list[str]:
+        """Your standing rules for every post (/regula)."""
+        try:
+            return list(json.loads(self.kv_get("rules") or "[]"))
+        except ValueError:
+            return []
+
+    def add_rule(self, text: str) -> list[str]:
+        rules = self.rules() + [text.strip()]
+        self.kv_set("rules", json.dumps(rules, ensure_ascii=False))
+        return rules
+
+    def remove_rule(self, index: int) -> str:
+        """1-based, as listed by /reguli."""
+        rules = self.rules()
+        if not 1 <= index <= len(rules):
+            raise ValueError(f"nu există regula {index}")
+        removed = rules.pop(index - 1)
+        self.kv_set("rules", json.dumps(rules, ensure_ascii=False))
+        return removed
+
+    def past_feedback(self, limit: int = 12) -> list[str]:
+        """The instructions you gave when regenerating drafts, newest first, no repeats."""
+        since = self.today() - timedelta(days=90)
+        with db.session() as s:
+            posts = s.scalars(select(Post).where(Post.for_date >= since).order_by(Post.id.desc()).limit(60))
+            out: list[str] = []
+            for p in posts:
+                for f in reversed(p.feedback or []):
+                    if f.lower() not in [o.lower() for o in out]:
+                        out.append(f)
+        return out[:limit]
+
+    def rejected_hooks(self, theme: str, limit: int = 5) -> list[str]:
+        """The angles of drafts you skipped for this theme lately."""
+        since = self.today() - timedelta(days=60)
+        with db.session() as s:
+            posts = s.scalars(select(Post).where(Post.theme == theme, Post.status == PostStatus.skipped,
+                                                 Post.for_date >= since).order_by(Post.id.desc()).limit(limit))
+            return [p.content.get("hook", "") for p in posts if p.content and p.content.get("hook")]
+
+    def best_examples(self, limit: int = 3) -> list[dict[str, str]]:
+        """Published posts that did best (engagement per reach), or the latest
+        approved ones while there are no Insights yet."""
+        since = self.today() - timedelta(days=120)
+        with db.session() as s:
+            posts = list(s.scalars(select(Post).where(
+                Post.status.in_([PostStatus.published, PostStatus.approved]), Post.for_date >= since)
+                .order_by(Post.id.desc()).limit(60)))
+        scored = [p for p in posts if score(p) is not None]
+        chosen = sorted(scored, key=lambda p: score(p), reverse=True)[:limit] if scored else posts[:limit]
+        return [{"theme": p.theme, "headline": p.content.get("headline", ""),
+                 "caption": " ".join(p.content.get("caption_ig", "").split())[:400]}
+                for p in chosen if p.content]
 
     def subject_detail(self, plan: content.DayPlan, subject: str) -> dict[str, Any] | None:
         if plan.template == "feature":
@@ -195,10 +296,27 @@ class Pipeline:
             await self.notifier.alert(f"Generarea postării extra a eșuat: {e}")
             raise
 
+    async def generate_custom(self, d: date, request: str, fmt: str = "single", template: str = "quote") -> Post:
+        """/post: a post written from your own request, on top of the daily one."""
+        plan = content.custom_plan(request, fmt, template)
+        try:
+            return await self._generate(d, plan, extra=True, subject=plan.subjects[0])
+        except Exception as e:
+            log.exception("custom post failed")
+            await self.notifier.alert(f"Postarea la cerere a eșuat: {e}")
+            raise
+
+    def plan_for(self, post: Post) -> content.DayPlan | None:
+        """The plan a post was made from (your request, for /post ones)."""
+        if post.theme == content.CUSTOM:
+            return content.custom_plan(post.subject, post.format or "single", post.template)
+        return content.theme_plan(post.theme)
+
     async def _generate(self, d: date, plan: content.DayPlan, *, base: Post | None = None,
-                        feedback: str | None = None, image_only: bool = False, extra: bool = False) -> Post:
+                        feedback: str | None = None, image_only: bool = False, extra: bool = False,
+                        subject: str | None = None) -> Post:
         async with self._lock:
-            subject = base.subject if base else self.pick_subject(plan)
+            subject = base.subject if base else (subject or self.pick_subject(plan))
             with db.session() as s:
                 if base:
                     post = s.get(Post, base.id)
@@ -206,16 +324,17 @@ class Pipeline:
                     post.status = PostStatus.generating
                 else:
                     post = Post(for_date=d, theme=plan.theme, subject=subject, template=plan.template,
-                                status=PostStatus.generating, extra=extra)
+                                status=PostStatus.generating, extra=extra, format=plan.format)
                     s.add(post)
                 s.flush()
                 post_id = post.id
+                fmt = post.format or "single"
                 prev_content = dict(post.content or {})
                 prev_photo = post.photo
                 usage = dict(post.usage or {})
             try:
                 await self._build(d, plan, post_id, subject, base, feedback, image_only,
-                                  prev_content, prev_photo, usage)
+                                  prev_content, prev_photo, usage, fmt)
             except Exception:
                 # Leave nothing stuck in "generating": drop a new row, restore a regenerated one.
                 with db.session() as s:
@@ -237,12 +356,12 @@ class Pipeline:
 
     async def _build(self, d: date, plan: content.DayPlan, post_id: int, subject: str, base: Post | None,
                      feedback: str | None, image_only: bool, prev_content: dict[str, Any],
-                     prev_photo: dict[str, Any] | None, usage: dict[str, Any]) -> None:
+                     prev_photo: dict[str, Any] | None, usage: dict[str, Any], fmt: str = "single") -> None:
         if image_only and prev_content:
             draft = PostDraft.model_validate(prev_content)
             issues = list(base.review_issues if base else [])
         else:
-            draft, issues, u = await self._write(plan, subject, feedback, prev_content or None)
+            draft, issues, u = await self._write(plan, subject, feedback, prev_content or None, fmt)
             usage[f"rev{(base.revision + 1) if base else 1}"] = u
 
         photo_info, photo_path = None, None
@@ -251,9 +370,15 @@ class Pipeline:
         elif plan.template == "feature" and image_only:
             draft = self._next_screen(subject, draft)
 
+        if fmt == "single" and draft.slides:
+            draft = draft.model_copy(update={"slides": []})
         out = self.s.media_dir / f"{d:%Y-%m-%d}-p{post_id}-v{(base.revision + 1) if base else 1}.jpg"
-        await render_post(plan.template, plan.theme, subject, draft.model_dump(), out, photo_path,
-                          credit_line(photo_info))
+        images = await render_set(plan.template, plan.theme, subject, draft.model_dump(), out, photo_path,
+                                  credit_line(photo_info), with_slides=fmt in ("carousel", "reel"))
+        if fmt == "reel":
+            media = [await make_reel(images, out.with_suffix(".mp4"))]
+        else:
+            media = images
 
         with db.session() as s:
             post = s.get(Post, post_id)
@@ -262,21 +387,26 @@ class Pipeline:
             post.photo = photo_info
             post.image_path = str(out)
             post.image_url = None
+            post.media_paths = [str(m) for m in media]
+            post.media_urls = []
             post.usage = usage
             post.status = PostStatus.draft
 
     async def _write(self, plan: content.DayPlan, subject: str, feedback: str | None,
-                     previous: dict[str, Any] | None) -> tuple[PostDraft, list[str], dict[str, Any]]:
+                     previous: dict[str, Any] | None, fmt: str = "single") -> tuple[PostDraft, list[str], dict[str, Any]]:
         recent = [{"date": p.for_date.isoformat(), "theme": p.theme, "headline": p.content.get("headline", ""),
                    "hook": p.content.get("hook", "")} for p in self.recent() if p.content]
         brief = Brief(theme=plan.theme, label=plan.label, template=plan.template, guidance=plan.guidance,
                       subject=subject, subject_detail=self.subject_detail(plan, subject), recent=recent,
-                      feedback=feedback, previous=previous)
+                      feedback=feedback, previous=previous, format=fmt, rules=self.rules(),
+                      past_feedback=self.past_feedback(), examples=self.best_examples(),
+                      rejected=self.rejected_hooks(plan.theme), season=content.season(self.today().month),
+                      stories=content.stories())
         if self.claude is None:
             raise GenerationError("Claude client not configured (ANTHROPIC_API_KEY)")
         draft, u1 = await generate_draft(brief, self.claude)
         draft = normalize(draft)
-        issues, u2 = await review(draft, plan.template, self.claude if self.review_with_claude else None)
+        issues, u2 = await review(draft, plan.template, self.claude if self.review_with_claude else None, fmt)
         usage = {"write": u1, "review": u2}
         if issues:
             # One automatic correction pass; whatever remains is shown to you.
@@ -285,7 +415,8 @@ class Pipeline:
             brief.previous = draft.model_dump()
             draft2, u3 = await generate_draft(brief, self.claude)
             draft2 = normalize(draft2)
-            issues2, u4 = await review(draft2, plan.template, self.claude if self.review_with_claude else None)
+            issues2, u4 = await review(draft2, plan.template, self.claude if self.review_with_claude else None,
+                                      fmt)
             usage.update(fix=u3, review2=u4)
             if len(issues2) <= len(issues):
                 draft, issues = draft2, issues2
@@ -317,9 +448,13 @@ class Pipeline:
         post = self.get(post_id)
         if not post or post.status != PostStatus.draft:
             raise ValueError(f"post {post_id} is not a draft")
-        plan = content.theme_plan(post.theme)
+        plan = self.plan_for(post)
         if plan is None:
             raise ValueError(f"theme {post.theme} is no longer in the calendar")
+        if feedback:
+            with db.session() as s:
+                p = s.get(Post, post_id)
+                p.feedback = [*(p.feedback or []), feedback.strip()]
         await self.notifier.mark(post, "→ regenerez")
         try:
             return await self._generate(post.for_date, plan, base=post, feedback=feedback, image_only=image_only)
@@ -411,13 +546,19 @@ class Pipeline:
         if self.meta is None or self.store is None:
             raise MetaError("Meta client or media storage not configured", retryable=False)
 
-        if not post.image_url:
-            key = f"posts/{Path(post.image_path).name}"
-            url = await self.store.put(Path(post.image_path), key)
+        paths = post.media_paths or [post.image_path]
+        if len(post.media_urls or []) != len(paths):
+            urls = []
+            for path in paths:
+                urls.append(await self.store.put(Path(path), f"posts/{Path(path).name}"))
             with db.session() as s:
-                s.get(Post, post.id).image_url = url
-            self._log(post.id, "storage", "upload", True, url)
+                p = s.get(Post, post.id)
+                p.media_urls = urls
+                p.image_url = urls[0]
+            self._log(post.id, "storage", "upload", True, " ".join(urls))
             post = self.get(post.id)
+        fmt = post.format or "single"
+        alt = c.get("alt_text") or None
 
         # Each platform is idempotent: a stored id means it is already live.
         if "instagram" in targets and not post.ig_media_id:
@@ -425,13 +566,19 @@ class Pipeline:
             if limit["quota_usage"] >= limit["quota_total"]:
                 raise MetaError(f"Instagram publishing limit reached ({limit})")
             if not post.ig_container_id:
-                cid = await self.meta.create_ig_container(post.image_url, caption_ig)
+                if fmt == "carousel":
+                    cid = await self.meta.create_ig_carousel(post.media_urls, caption_ig, alt)
+                elif fmt == "reel":
+                    cid = await self.meta.create_ig_reel(post.media_urls[0], caption_ig)
+                else:
+                    cid = await self.meta.create_ig_container(post.image_url, caption_ig, alt)
                 with db.session() as s:
                     s.get(Post, post.id).ig_container_id = cid
                 self._log(post.id, "instagram", "container", True, cid)
                 post = self.get(post.id)
             try:
-                await self.meta.wait_ig_container(post.ig_container_id)
+                # A reel is processed on Meta's side: give it longer.
+                await self.meta.wait_ig_container(post.ig_container_id, timeout_s=600 if fmt == "reel" else 120)
             except MetaError as e:
                 if e.retryable:  # expired container: make a new one next attempt
                     with db.session() as s:
@@ -443,7 +590,12 @@ class Pipeline:
             self._log(post.id, "instagram", "publish", True, media_id)
 
         if "facebook" in targets and not post.fb_post_id:
-            fb_id = await self.meta.publish_facebook_photo(post.image_url, caption_fb)
+            if fmt == "carousel":
+                fb_id = await self.meta.publish_facebook_carousel(post.media_urls, caption_fb)
+            elif fmt == "reel":
+                fb_id = await self.meta.publish_facebook_video(post.media_urls[0], caption_fb)
+            else:
+                fb_id = await self.meta.publish_facebook_photo(post.image_url, caption_fb)
             with db.session() as s:
                 s.get(Post, post.id).fb_post_id = fb_id
             self._log(post.id, "facebook", "publish", True, fb_id)
@@ -471,6 +623,68 @@ class Pipeline:
             local = as_utc(nxt).astimezone(self.s.tz)
             await self.notifier.alert(f"Publicarea #{post_id} a eșuat (încercarea {attempts}), reîncerc la {local:%H:%M}: {e}")
         return post
+
+    # -------------------------------------------------------------- insights
+    async def collect_metrics(self, days: int = 30) -> int:
+        """Daily: refresh reach and interactions of everything published in the
+        last `days` days. Returns how many posts were updated."""
+        if self.meta is None or self.s.dry_run:
+            return 0
+        since = self.today() - timedelta(days=days)
+        with db.session() as s:
+            posts = list(s.scalars(select(Post).where(Post.status == PostStatus.published, Post.for_date >= since)))
+        updated = 0
+        for post in posts:
+            m: dict[str, Any] = dict(post.metrics or {})
+            if post.ig_media_id and post.ig_media_id != "dry-run":
+                try:
+                    m["ig"] = await self.meta.ig_insights(post.ig_media_id)
+                except MetaError as e:
+                    log.warning("IG insights #%s: %s", post.id, e)
+            if post.fb_post_id and post.fb_post_id != "dry-run":
+                try:
+                    m["fb"] = await self.meta.fb_post_stats(post.fb_post_id)
+                except MetaError as e:
+                    log.warning("FB stats #%s: %s", post.id, e)
+            if m != (post.metrics or {}):
+                with db.session() as s:
+                    p = s.get(Post, post.id)
+                    p.metrics = m
+                    p.metrics_at = self.now()
+                updated += 1
+        log.info("metrics updated for %d of %d posts", updated, len(posts))
+        return updated
+
+    def report_text(self, days: int = 30) -> str:
+        """What worked in the last `days` days: by theme, by format, and the top posts."""
+        since = self.today() - timedelta(days=days)
+        with db.session() as s:
+            posts = [p for p in s.scalars(select(Post).where(Post.status == PostStatus.published,
+                                                              Post.for_date >= since)) if p.metrics]
+        if not posts:
+            return (f"📊 Nicio postare cu statistici în ultimele {days} zile. Statisticile se adună zilnic "
+                    f"la 21:00 pentru postările publicate (nu în DRY RUN).")
+        lines = [f"📊 Ultimele {days} zile · {len(posts)} postări cu statistici", ""]
+
+        def group(key) -> list[str]:
+            out = []
+            buckets: dict[str, list[Post]] = {}
+            for p in posts:
+                buckets.setdefault(key(p), []).append(p)
+            for name, ps in sorted(buckets.items(), key=lambda kv: -avg([score(p) or 0 for p in kv[1]])):
+                out.append(f"• {name}: {len(ps)} post., reach mediu {avg([reach(p) for p in ps]):.0f}, "
+                           f"interacțiuni medii {avg([interactions(p) for p in ps]):.1f}, "
+                           f"rată {avg([score(p) or 0 for p in ps]) * 100:.1f}%")
+            return out
+
+        lines += ["Pe teme:", *group(lambda p: p.theme), "", "Pe format:", *group(lambda p: p.format or "single"), ""]
+        top = sorted(posts, key=lambda p: score(p) or 0, reverse=True)[:3]
+        lines.append("Cele mai bune:")
+        for p in top:
+            lines.append(f"• #{p.id} {p.for_date:%d.%m} {p.theme}/{p.format}: „{p.content.get('headline', '')}” "
+                         f"· reach {reach(p)}, salvări {saves(p)}, distribuiri {shares(p)}")
+        lines.append("\nRata = interacțiuni / reach. Salvările și distribuirile contează cel mai mult.")
+        return "\n".join(lines)
 
     # --------------------------------------------------------------- reports
     def status_text(self) -> str:

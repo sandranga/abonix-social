@@ -66,8 +66,23 @@ def normalize(d: PostDraft) -> PostDraft:
     return PostDraft.model_validate(data)
 
 
-def rule_issues(d: PostDraft, template: str) -> list[str]:
-    issues: list[str] = []
+def slide_issues(d: PostDraft, fmt: str) -> list[str]:
+    if fmt not in ("carousel", "reel"):
+        return []  # a single image ignores slides (the pipeline drops them)
+    issues = []
+    if not (2 <= len(d.slides) <= 4):
+        issues.append(f"{'Caruselul' if fmt == 'carousel' else 'Reel-ul'} are {len(d.slides)} slide-uri (2-4).")
+    max_body = 25 if fmt == "carousel" else 20
+    for i, sl in enumerate(d.slides, start=2):  # slide 1 is the cover
+        if words(sl.title) > 6:
+            issues.append(f"Slide {i}: titlul are {words(sl.title)} cuvinte (max 6): „{sl.title}”")
+        if words(sl.body) > max_body:
+            issues.append(f"Slide {i}: textul are {words(sl.body)} cuvinte (max {max_body}).")
+    return issues
+
+
+def rule_issues(d: PostDraft, template: str, fmt: str = "single") -> list[str]:
+    issues: list[str] = slide_issues(d, fmt)
     if words(d.headline) > 6:
         issues.append(f"Titlul are {words(d.headline)} cuvinte (max 6): „{d.headline}”")
     if words(d.subline) > 12:
@@ -97,6 +112,7 @@ def rule_issues(d: PostDraft, template: str) -> list[str]:
     texts = {
         "titlu": d.headline, "subtitlu": d.subline, "caption IG": d.caption_ig,
         "caption FB": d.caption_fb, "puncte": " | ".join(d.points + d.points_after),
+        "slide-uri": " | ".join(f"{s.title}: {s.body}" for s in d.slides),
     }
     allowed = content.allowed_prices()
     for where, t in texts.items():
@@ -147,8 +163,9 @@ async def claude_review(d: PostDraft, api: anthropic.AsyncAnthropic) -> tuple[Re
     return resp.parsed_output, {"model": resp.model, "input": u.input_tokens, "output": u.output_tokens}
 
 
-async def review(d: PostDraft, template: str, api: anthropic.AsyncAnthropic | None) -> tuple[list[str], dict[str, Any]]:
-    issues = rule_issues(d, template)
+async def review(d: PostDraft, template: str, api: anthropic.AsyncAnthropic | None,
+                 fmt: str = "single") -> tuple[list[str], dict[str, Any]]:
+    issues = rule_issues(d, template, fmt)
     usage: dict[str, Any] = {}
     if api is not None:
         try:

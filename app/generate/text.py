@@ -37,6 +37,13 @@ class Brief:
     feedback: str | None = None
     previous: dict[str, Any] | None = None
     review_issues: list[str] = field(default_factory=list)
+    format: str = "single"
+    rules: list[str] = field(default_factory=list)            # your standing rules (/regula)
+    past_feedback: list[str] = field(default_factory=list)    # instructions you gave on other drafts
+    examples: list[dict[str, str]] = field(default_factory=list)  # approved posts that did well
+    rejected: list[str] = field(default_factory=list)         # hooks of drafts you skipped
+    season: dict[str, Any] | None = None
+    stories: list[dict[str, Any]] = field(default_factory=list)
 
 
 SYSTEM_RULES = """\
@@ -83,6 +90,42 @@ def build_user_message(b: Brief) -> str:
             "Alege `screen` din capturile acestei funcționalități: "
             + ", ".join((b.subject_detail or {}).get("screens", []))
         )
+    if b.format == "carousel":
+        parts.append(
+            "Format: carusel. Coperta e imaginea obișnuită (headline, subline). Scrie în `slides` 2-4 "
+            "slide-uri care continuă ideea, câte una pe slide (title max 6 cuvinte, body max 25), "
+            "într-o ordine care te face să dai mai departe: problema, cum se rezolvă, ce câștigi. "
+            "Slide-ul final cu „link în bio” se adaugă automat; nu-l scrie."
+        )
+    elif b.format == "reel":
+        parts.append(
+            "Format: reel (video scurt). Coperta (headline, subline) e primul cadru și trebuie să oprească "
+            "scroll-ul. Scrie în `slides` 2-4 cadre scurte (title max 6 cuvinte, body max 20), câte o idee, "
+            "citibile în 3 secunde fiecare. Cadrul final cu „link în bio” se adaugă automat."
+        )
+    else:
+        parts.append("Format: o singură imagine. Lasă `slides` gol.")
+    if b.season:
+        parts.append(f"Context sezonier ({b.season['name']}), folosește-l doar dacă se potrivește "
+                     f"natural cu subiectul: {b.season['hint']}")
+    if b.stories:
+        parts.append(
+            "Povești reale cu acord (le poți folosi exact cum sunt, fără să adaugi nimic; numele clubului "
+            "doar dacă name_ok e true):\n" + json.dumps(b.stories, ensure_ascii=False, indent=1)
+        )
+    if b.rules:
+        parts.append("Regulile permanente ale editorului (respectă-le mereu):\n- " + "\n- ".join(b.rules))
+    if b.past_feedback:
+        parts.append(
+            "Instrucțiuni date recent de editor la alte postări. Aplică-le pe cele generale "
+            "(ton, lungime, stil), nu pe cele legate strict de o anumită postare:\n- "
+            + "\n- ".join(b.past_feedback)
+        )
+    if b.examples:
+        lines = [f"- [{e['theme']}] {e['headline']}: {e['caption']}" for e in b.examples]
+        parts.append("Postări aprobate care au mers bine (stilul de urmat, nu le copia):\n" + "\n".join(lines))
+    if b.rejected:
+        parts.append("Unghiuri respinse recent de editor (evită-le):\n- " + "\n- ".join(b.rejected))
     if b.recent:
         lines = [f"- {r['date']} [{r['theme']}] {r['headline']} — {r['hook']}" for r in b.recent]
         parts.append("Ultimele postări (nu le repeta):\n" + "\n".join(lines))

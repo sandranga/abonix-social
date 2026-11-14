@@ -35,4 +35,21 @@ def build_scheduler(p: Pipeline) -> AsyncIOScheduler:
                   id="generate", misfire_grace_time=3 * 3600, coalesce=True)
     sched.add_job(publish_tick, IntervalTrigger(minutes=1), id="publish", coalesce=True, max_instances=1)
     sched.add_job(p.health_check, CronTrigger(hour=7, minute=30), id="health", coalesce=True)
+
+    async def metrics():
+        try:
+            await p.collect_metrics()
+        except Exception:
+            log.exception("metrics collection failed")
+
+    async def weekly_report():
+        try:
+            await p.notifier.info(p.report_text(days=7))
+        except Exception:
+            log.exception("weekly report failed")
+
+    # After the evening posts; Insights lag a few hours, so yesterday's numbers are complete.
+    sched.add_job(metrics, CronTrigger(hour=21, minute=0), id="metrics", coalesce=True, misfire_grace_time=3 * 3600)
+    sched.add_job(weekly_report, CronTrigger(day_of_week="mon", hour=9, minute=0), id="weekly_report",
+                  coalesce=True, misfire_grace_time=6 * 3600)
     return sched

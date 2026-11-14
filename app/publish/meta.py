@@ -1,14 +1,23 @@
 """Facebook Page + Instagram publishing through the Graph API, with httpx.
 
 Flows (Meta docs, content publishing):
-  Instagram: POST /{ig-user-id}/media (container) -> poll status_code until
-             FINISHED -> POST /{ig-user-id}/media_publish
-  Facebook:  POST /{page-id}/photos with url + message (Page access token)
+  Instagram image:    POST /{ig-user-id}/media (container) -> poll status_code
+                      until FINISHED -> POST /{ig-user-id}/media_publish
+  Instagram carousel: one container per image (is_carousel_item) -> a CAROUSEL
+                      container with children -> poll -> media_publish
+  Instagram reel:     a REELS container with video_url -> poll -> media_publish
+  Facebook image:     POST /{page-id}/photos with url + message (Page token)
+  Facebook carousel:  each photo unpublished, then POST /{page-id}/feed with
+                      attached_media (a multi-photo post)
+  Facebook reel:      POST /{page-id}/videos with file_url + description
+  Insights:           GET /{ig-media-id}/insights (instagram_manage_insights);
+                      Facebook reactions/comments/shares from the post itself
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any
 
@@ -39,12 +48,16 @@ class MetaClient:
         self.page_id = page_id
         self.ig_user_id = ig_user_id
         self.base = f"https://graph.facebook.com/{version}"
+        self.video_base = f"https://graph-video.facebook.com/{version}"
         self.http = http or httpx.AsyncClient(timeout=60)
         self._page_token: str | None = None
 
-    async def _call(self, method: str, path: str, *, token: str | None = None, **params: Any) -> dict[str, Any]:
+    async def _call(self, method: str, path: str, *, token: str | None = None, base: str | None = None,
+                    **params: Any) -> dict[str, Any]:
         params["access_token"] = token or self.token
-        url = f"{self.base}/{path.lstrip('/')}"
+        # Lists/objects (children, attached_media) go as JSON strings.
+        params = {k: json.dumps(v) if isinstance(v, (list, dict)) else v for k, v in params.items()}
+        url = f"{base or self.base}/{path.lstrip('/')}"
         try:
             if method == "GET":
                 r = await self.http.get(url, params=params)
@@ -110,12 +123,48 @@ class MetaClient:
                                 url=image_url, message=message, published="true")
         return body.get("post_id") or body["id"]
 
+    async def publish_facebook_carousel(self, image_urls: list[str], message: str) -> str:
+        """A multi-photo post: the photos are uploaded unpublished, then attached to one post."""
+        token = await self.page_token()
+        ids = []
+        for url in image_urls:
+            body = await self._call("POST", f"{self.page_id}/photos", token=token, url=url, published="false")
+            ids.append(body["id"])
+        body = await self._call("POST", f"{self.page_id}/feed", token=token, message=message,
+                                attached_media=[{"media_fbid": i} for i in ids])
+        return body["id"]
+
+    async def publish_facebook_video(self, video_url: str, description: str) -> str:
+        body = await self._call("POST", f"{self.page_id}/videos", token=await self.page_token(),
+                                base=self.video_base, file_url=video_url, description=description)
+        return body["id"]
+
     # --- Instagram ---------------------------------------------------------
     async def create_ig_container(self, image_url: str, caption: str, alt_text: str | None = None) -> str:
         params: dict[str, Any] = {"image_url": image_url, "caption": caption}
         if alt_text:
             params["alt_text"] = alt_text
         body = await self._call("POST", f"{self.ig_user_id}/media", **params)
+        return body["id"]
+
+    async def create_ig_carousel(self, image_urls: list[str], caption: str, alt_text: str | None = None) -> str:
+        """Child containers first, then the carousel container that holds them."""
+        children = []
+        for url in image_urls:
+            params: dict[str, Any] = {"image_url": url, "is_carousel_item": "true"}
+            if alt_text:
+                params["alt_text"] = alt_text
+            body = await self._call("POST", f"{self.ig_user_id}/media", **params)
+            children.append(body["id"])
+        for cid in children:
+            await self.wait_ig_container(cid)
+        body = await self._call("POST", f"{self.ig_user_id}/media", media_type="CAROUSEL",
+                                children=",".join(children), caption=caption)
+        return body["id"]
+
+    async def create_ig_reel(self, video_url: str, caption: str) -> str:
+        body = await self._call("POST", f"{self.ig_user_id}/media", media_type="REELS", video_url=video_url,
+                                caption=caption, share_to_feed="true")
         return body["id"]
 
     async def wait_ig_container(self, container_id: str, timeout_s: float = 120, every_s: float = 5) -> None:
@@ -136,6 +185,40 @@ class MetaClient:
     async def publish_ig_container(self, container_id: str) -> str:
         body = await self._call("POST", f"{self.ig_user_id}/media_publish", creation_id=container_id)
         return body["id"]
+
+    # --- Insights ------------------------------------------------------------
+    IG_METRICS = ["reach", "views", "likes", "comments", "saved", "shares", "total_interactions"]
+
+    async def ig_insights(self, media_id: str) -> dict[str, int]:
+        """Reach and interactions of one Instagram post (needs instagram_manage_insights)."""
+        metrics = list(self.IG_METRICS)
+        while metrics:
+            try:
+                body = await self._call("GET", f"{media_id}/insights", metric=",".join(metrics))
+            except MetaError as e:
+                # A metric this media type doesn't support: drop it and ask again.
+                bad = next((m for m in metrics if m in str(e)), None)
+                if bad is None:
+                    raise
+                metrics.remove(bad)
+                continue
+            out = {}
+            for item in body.get("data", []):
+                values = item.get("values") or [{}]
+                out[item["name"]] = int(values[0].get("value") or item.get("total_value", {}).get("value") or 0)
+            return out
+        return {}
+
+    async def fb_post_stats(self, post_id: str) -> dict[str, int]:
+        """Reactions, comments and shares of one Facebook post (no extra permission)."""
+        body = await self._call("GET", post_id, token=await self.page_token(),
+                                fields="reactions.summary(total_count).limit(0),"
+                                       "comments.summary(total_count).limit(0),shares")
+        return {
+            "reactions": int(((body.get("reactions") or {}).get("summary") or {}).get("total_count") or 0),
+            "comments": int(((body.get("comments") or {}).get("summary") or {}).get("total_count") or 0),
+            "shares": int((body.get("shares") or {}).get("count") or 0),
+        }
 
     async def delete(self, object_id: str) -> None:
         """Used by `cli.py meta-test --delete` (FB posts only; IG media cannot be deleted via API)."""

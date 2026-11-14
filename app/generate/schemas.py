@@ -11,6 +11,11 @@ from pydantic import BaseModel, Field
 Accent = Literal["indigo", "sky", "dark"]
 
 
+class Slide(BaseModel):
+    title: str = Field(description="Titlul slide-ului. Maxim 6 cuvinte.")
+    body: str = Field(description="Textul slide-ului. Maxim 25 de cuvinte, o singură idee.")
+
+
 class PostDraft(BaseModel):
     headline: str = Field(description="Titlul de pe imagine. Maxim 6 cuvinte.")
     subline: str = Field(description="Subtitlul de pe imagine. Maxim 12 cuvinte.")
@@ -38,6 +43,13 @@ class PostDraft(BaseModel):
     )
     accent: Accent = Field(default="indigo", description="Varianta de culoare a imaginii.")
     hook: str = Field(description="Unghiul/ideea postării într-o frază, pentru evitarea repetițiilor.")
+    slides: list[Slide] = Field(
+        default_factory=list,
+        description=(
+            "Doar pentru carousel și reel: 2-4 slide-uri după copertă, fiecare cu o singură idee, "
+            "în ordinea în care se citesc. Slide-ul final cu „link în bio” se adaugă automat. Altfel gol."
+        ),
+    )
 
 
 class ReviewResult(BaseModel):

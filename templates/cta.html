@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block style %}
+.tpl-cta { justify-content: center; align-items: flex-start; padding-bottom: 170px; }
+.tpl-cta .count { position: absolute; top: 88px; right: 84px; font-size: 28px; font-weight: 700; opacity: .7; letter-spacing: .04em; }
+.tpl-cta h1 { font-size: 104px; }
+.tpl-cta .sub { font-size: 44px; margin-top: 34px; }
+.tpl-cta .pill { margin-top: 64px; display: inline-flex; align-items: center; gap: 22px; padding: 30px 46px;
+  border-radius: 999px; background: #fff; color: var(--indigo); font-size: 50px; font-weight: 800; letter-spacing: -0.01em;
+  box-shadow: 0 30px 70px rgba(15,23,42,.35); }
+.accent-sky.tpl-cta .pill { color: #2563eb; }
+.accent-dark.tpl-cta .pill { color: var(--ink); }
+.tpl-cta .pill svg { width: 54px; height: 54px; }
+.tpl-cta .save { margin-top: 56px; font-size: 32px; font-weight: 600; opacity: .8; display: flex; align-items: center; gap: 14px; }
+.tpl-cta .save svg { width: 36px; height: 36px; }
+{% endblock %}
+{% block body %}
+<div class="blob" style="width:640px;height:640px;right:-240px;top:-220px"></div>
+<div class="dots" style="left:84px;bottom:190px"></div>
+<div class="kicker" style="position:absolute;top:88px;left:84px">Abonix</div>
+<div class="count">{{ total }} / {{ total }}</div>
+<h1>Vezi cum arată pentru sala ta</h1>
+<p class="sub">Detalii, prețuri și acces, într-un singur loc.</p>
+<div class="pill">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  Link în bio
+</div>
+<div class="save">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+  Salvează postarea ca s-o ai la îndemână
+</div>
+{% endblock %}

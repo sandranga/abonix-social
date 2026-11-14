@@ -32,12 +32,25 @@ def init_db(url: str | None = None) -> None:
     _Session = sessionmaker(_engine, expire_on_commit=False)
 
 
+# Columns added after the first release, in order (create_all only makes new tables).
+NEW_POST_COLUMNS = [
+    ("extra", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("format", "VARCHAR(20) NOT NULL DEFAULT 'single'"),
+    ("media_paths", "JSON NOT NULL DEFAULT '[]'"),
+    ("media_urls", "JSON NOT NULL DEFAULT '[]'"),
+    ("feedback", "JSON NOT NULL DEFAULT '[]'"),
+    ("metrics", "JSON NOT NULL DEFAULT '{}'"),
+    ("metrics_at", "DATETIME"),
+]
+
+
 def _migrate(engine) -> None:
-    """Columns added after the first release (create_all only makes new tables)."""
     cols = {c["name"] for c in inspect(engine).get_columns("posts")}
-    if "extra" not in cols:
+    missing = [(name, ddl) for name, ddl in NEW_POST_COLUMNS if name not in cols]
+    if missing:
         with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE posts ADD COLUMN extra BOOLEAN NOT NULL DEFAULT 0"))
+            for name, ddl in missing:
+                conn.execute(text(f"ALTER TABLE posts ADD COLUMN {name} {ddl}"))
 
 
 @contextmanager
