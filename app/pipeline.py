@@ -20,7 +20,7 @@ from app.generate.schemas import PostDraft
 from app.generate.text import Brief, GenerationError, generate_draft
 from app.images.providers import ImageError, ImageProvider, credit_line
 from app.images.render import render_set
-from app.images.video import make_reel
+from app.images.video import make_reel, pick_music
 from app.models import KV, Post, PostStatus, PublishLog
 from app.publish.meta import MetaClient, MetaError
 from app.publish.storage import MediaStore
@@ -390,7 +390,7 @@ class Pipeline:
         images = await render_set(plan.template, plan.theme, subject, draft.model_dump(), out, photo_path,
                                   credit_line(photo_info), with_slides=fmt in ("carousel", "reel"))
         if fmt == "reel":
-            media = [await make_reel(images, out.with_suffix(".mp4"))]
+            media = [await make_reel(images, out.with_suffix(".mp4"), pick_music(post_id))]
         else:
             media = images
 

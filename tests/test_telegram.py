@@ -39,7 +39,7 @@ async def test_carousel_draft_is_an_album_then_buttons(settings, tmp_path):
 async def test_reel_draft_is_a_video(settings, tmp_path, monkeypatch):
     from app import pipeline as pipeline_mod
 
-    async def make_reel(images, out):
+    async def make_reel(images, out, music=None):
         out.write_bytes(b"mp4")
         return out
 
@@ -90,7 +90,7 @@ async def test_post_command_hands_the_whole_request_over(settings, tmp_path, mon
     from app import pipeline as pipeline_mod
     from app.generate.request import RequestPlan
 
-    async def make_reel(images, out):
+    async def make_reel(images, out, music=None):
         out.write_bytes(b"mp4")
         return out
 

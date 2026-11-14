@@ -37,9 +37,12 @@ Mon 09:00  weekly report in Telegram
 
 **Formats** (`format:` per day in `calendar.yaml`): a *carousel* is the cover,
 2–4 slides with one idea each, and a final "link în bio" slide. A *reel* is the
-same slides as a 9:16 video (each slide over a blurred copy of itself, a slow
-zoom, crossfades, a silent audio track) made with the ffmpeg bundled in
+same slides as a 9:16 video (each slide over a blurred copy of itself, sliding
+crossfades, and music from `assets/music/` or a silent track) made with the ffmpeg bundled in
 `imageio-ffmpeg`. Telegram shows a carousel as an album and a reel as a video.
+**Music:** put licensed tracks (e.g. Pixabay Music) in `assets/music/`; reels
+rotate through them, trimmed to the video with a fade. Instagram's trending
+sounds can't be added: Meta's publishing API has no access to its music library.
 Slides can show a real app screenshot (phone, tablet or browser frame) when they
 talk about that screen. Colours come only from the Abonix palette
 (`frontend/src/theme.ts`): indigo, sky, dark, and the abonix.net indigo→sky gradient.

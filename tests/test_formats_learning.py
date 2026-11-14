@@ -29,7 +29,7 @@ def fake_reel(monkeypatch):
     """ffmpeg is tested in test_video.py; here a reel is just a file."""
     made = []
 
-    async def make_reel(images, out):
+    async def make_reel(images, out, music=None):
         out.write_bytes(b"mp4")
         made.append([Path(i).name for i in images])
         return out
