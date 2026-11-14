@@ -150,7 +150,7 @@ features:
       la fiecare 30 de secunde. Merge pe o tabletă Android (recomandat cu Fully
       Kiosk Browser) sau pe un iPad. Intrările înregistrate de tabletă apar în
       același istoric.
-    screens: [kiosk-scan.webp, kiosk-intrare.webp, app-checkin.webp]
+    screens: [kiosk-scan.webp, kiosk-intrare.webp, kiosk-refuzat.webp, app-checkin.webp]
   - key: classes
     name: Clase de grup și rezervări
     plans: [growth, business]
