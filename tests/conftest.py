@@ -37,13 +37,17 @@ def good_draft(**over: Any) -> PostDraft:
 
 
 class FakeMessages:
-    def __init__(self, outputs: list[Any]):
+    def __init__(self, outputs: list[Any], request_plan: Any = None):
         self.outputs = outputs
+        self.request_plan = request_plan
         self.calls: list[dict] = []
 
     async def parse(self, **kw):
         self.calls.append(kw)
-        out = self.outputs.pop(0) if len(self.outputs) > 1 else self.outputs[0]
+        if getattr(kw.get("output_format"), "__name__", "") == "RequestPlan":  # /post: reading the request
+            out = self.request_plan
+        else:
+            out = self.outputs.pop(0) if len(self.outputs) > 1 else self.outputs[0]
         return SimpleNamespace(
             parsed_output=out, stop_reason="end_turn", stop_details=None, model=kw["model"], _request_id="req_test",
             usage=SimpleNamespace(input_tokens=100, output_tokens=50, cache_read_input_tokens=0,
@@ -54,9 +58,13 @@ class FakeMessages:
 class FakeClaude:
     """Mimics AsyncAnthropic: beta.messages.parse writes, messages.parse reviews."""
 
-    def __init__(self, drafts: list[PostDraft] | None = None, review: ReviewResult | None = None):
+    def __init__(self, drafts: list[PostDraft] | None = None, review: ReviewResult | None = None,
+                 request_plan: Any = None):
+        from app.generate.request import RequestPlan
+
         self.beta = SimpleNamespace(messages=FakeMessages(drafts or [good_draft()]))
-        self.messages = FakeMessages([review or ReviewResult(ok=True, issues=[])])
+        self.messages = FakeMessages([review or ReviewResult(ok=True, issues=[])],
+                                     request_plan or RequestPlan(format="single", template="quote"))
 
 
 class FakeNotifier:

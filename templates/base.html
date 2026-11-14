@@ -8,10 +8,11 @@
 @font-face { font-family: 'Inter'; font-weight: 400 800; src: url('{{ assets }}/fonts/inter-latin.woff2') format('woff2-variations');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 
+/* The Abonix palette, as in the app (frontend/src/theme.ts). Nothing else. */
 :root {
   --indigo: #4f46e5; --indigo-dark: #4338ca; --indigo-light: #818cf8;
-  --sky: #0ea5e9; --sky-light: #38bdf8;
-  --ink: #0f172a; --slate: #475569; --mist: #f3f4f6; --white: #ffffff;
+  --sky: #0ea5e9; --sky-dark: #0284c7; --sky-light: #38bdf8;
+  --ink: #0f172a; --paper-dark: #1e293b; --slate: #475569; --mist: #f3f4f6; --white: #ffffff;
   --red: #dc2626; --green: #16a34a;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,9 +23,10 @@ body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; color: var(--ink);
 .canvas { position: relative; width: 1080px; height: 1350px; overflow: hidden; padding: 88px 84px 0; display: flex; flex-direction: column; }
 
 /* Accent variants */
-.accent-indigo { background: radial-gradient(1200px 900px at 100% 0%, #6366f1 0%, var(--indigo) 45%, var(--indigo-dark) 100%); color: var(--white); }
-.accent-sky    { background: radial-gradient(1100px 900px at 0% 0%, #38bdf8 0%, var(--sky) 40%, #2563eb 100%); color: var(--white); }
-.accent-dark   { background: radial-gradient(1100px 900px at 100% 0%, #1e293b 0%, var(--ink) 60%); color: var(--white); }
+.accent-indigo   { background: radial-gradient(1200px 900px at 100% 0%, var(--indigo) 0%, var(--indigo) 40%, var(--indigo-dark) 100%); color: var(--white); }
+.accent-sky      { background: radial-gradient(1100px 900px at 0% 0%, var(--sky-light) 0%, var(--sky) 40%, var(--sky-dark) 100%); color: var(--white); }
+.accent-gradient { background: linear-gradient(135deg, var(--indigo) 0%, var(--sky) 100%); color: var(--white); }  /* the abonix.net hero */
+.accent-dark     { background: radial-gradient(1100px 900px at 100% 0%, var(--paper-dark) 0%, var(--ink) 60%); color: var(--white); }
 .accent-light  { background: var(--mist); color: var(--ink); }
 
 /* Decorative shapes (pure CSS, no image model needed) */

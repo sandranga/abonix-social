@@ -296,11 +296,20 @@ class Pipeline:
             await self.notifier.alert(f"Generarea postării extra a eșuat: {e}")
             raise
 
-    async def generate_custom(self, d: date, request: str, fmt: str = "single", template: str = "quote") -> Post:
-        """/post: a post written from your own request, on top of the daily one."""
-        plan = content.custom_plan(request, fmt, template)
+    async def generate_custom(self, d: date, request: str, fmt: str | None = None,
+                              template: str | None = None, subject: str | None = None) -> Post:
+        """/post: a post written from your own request, on top of the daily one.
+        Without fmt/template, Claude reads the request and picks the format, the
+        cover and the feature/plan it is about."""
+        from app.generate.request import interpret
+
         try:
-            return await self._generate(d, plan, extra=True, subject=plan.subjects[0])
+            if fmt is None or template is None:
+                rp = await interpret(request, self.claude)
+                fmt, template, subject = fmt or rp.format, template or rp.template, subject or rp.subject
+                log.info("/post plan: %s %s %s", fmt, template, subject)
+            plan = content.custom_plan(request, fmt, template, subject)
+            return await self._generate(d, plan, extra=True, subject=plan.subjects[0], request=request)
         except Exception as e:
             log.exception("custom post failed")
             await self.notifier.alert(f"Postarea la cerere a eșuat: {e}")
@@ -309,12 +318,13 @@ class Pipeline:
     def plan_for(self, post: Post) -> content.DayPlan | None:
         """The plan a post was made from (your request, for /post ones)."""
         if post.theme == content.CUSTOM:
-            return content.custom_plan(post.subject, post.format or "single", post.template)
+            subject = post.subject if post.request else None
+            return content.custom_plan(post.request or post.subject, post.format or "single", post.template, subject)
         return content.theme_plan(post.theme)
 
     async def _generate(self, d: date, plan: content.DayPlan, *, base: Post | None = None,
                         feedback: str | None = None, image_only: bool = False, extra: bool = False,
-                        subject: str | None = None) -> Post:
+                        subject: str | None = None, request: str | None = None) -> Post:
         async with self._lock:
             subject = base.subject if base else (subject or self.pick_subject(plan))
             with db.session() as s:
@@ -324,7 +334,7 @@ class Pipeline:
                     post.status = PostStatus.generating
                 else:
                     post = Post(for_date=d, theme=plan.theme, subject=subject, template=plan.template,
-                                status=PostStatus.generating, extra=extra, format=plan.format)
+                                status=PostStatus.generating, extra=extra, format=plan.format, request=request)
                     s.add(post)
                 s.flush()
                 post_id = post.id
@@ -372,6 +382,10 @@ class Pipeline:
 
         if fmt == "single" and draft.slides:
             draft = draft.model_copy(update={"slides": []})
+        known = set(content.all_screens())
+        if any(sl.screen and sl.screen not in known for sl in draft.slides):  # never render a missing file
+            draft = draft.model_copy(update={"slides": [
+                sl.model_copy(update={"screen": sl.screen if sl.screen in known else None}) for sl in draft.slides]})
         out = self.s.media_dir / f"{d:%Y-%m-%d}-p{post_id}-v{(base.revision + 1) if base else 1}.jpg"
         images = await render_set(plan.template, plan.theme, subject, draft.model_dump(), out, photo_path,
                                   credit_line(photo_info), with_slides=fmt in ("carousel", "reel"))
@@ -401,7 +415,7 @@ class Pipeline:
                       feedback=feedback, previous=previous, format=fmt, rules=self.rules(),
                       past_feedback=self.past_feedback(), examples=self.best_examples(),
                       rejected=self.rejected_hooks(plan.theme), season=content.season(self.today().month),
-                      stories=content.stories())
+                      stories=content.stories(), screens=self._slide_screens(plan, subject))
         if self.claude is None:
             raise GenerationError("Claude client not configured (ANTHROPIC_API_KEY)")
         draft, u1 = await generate_draft(brief, self.claude)
@@ -421,6 +435,14 @@ class Pipeline:
             if len(issues2) <= len(issues):
                 draft, issues = draft2, issues2
         return draft, issues, usage
+
+    @staticmethod
+    def _slide_screens(plan: content.DayPlan, subject: str) -> dict[str, list[str]]:
+        """A feature post's slides use that feature's screens; other posts may use any."""
+        feat = content.feature(subject) if plan.template == "feature" else None
+        if feat and feat.get("screens"):
+            return {feat["name"]: list(feat["screens"])}
+        return content.screens_by_feature()
 
     async def _photo(self, draft: PostDraft, exclude_current: dict | None) -> tuple[dict[str, Any], Path]:
         if self.images is None:

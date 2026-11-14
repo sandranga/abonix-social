@@ -86,18 +86,17 @@ async def test_reply_feedback_is_stored(settings, tmp_path):
     assert p.get(post.id).feedback == ["mai scurt"]
 
 
-def test_parse_post_request():
-    from app.approve.telegram import parse_post_request
+async def test_post_command_hands_the_whole_request_over(settings, tmp_path, monkeypatch):
+    from app import pipeline as pipeline_mod
+    from app.generate.request import RequestPlan
 
-    assert parse_post_request("carusel 3 greșeli în Excel") == ("carousel", "quote", "3 greșeli în Excel")
-    assert parse_post_request("Reel de ce memento-urile merg") == ("reel", "quote", "de ce memento-urile merg")
-    assert parse_post_request("foto cluburi de înot") == ("single", "photo", "cluburi de înot")
-    assert parse_post_request("anunță programul de Crăciun") == ("single", "quote", "anunță programul de Crăciun")
-    assert parse_post_request("carusel") == ("single", "quote", "carusel")  # a format word alone is the request
+    async def make_reel(images, out):
+        out.write_bytes(b"mp4")
+        return out
 
+    monkeypatch.setattr(pipeline_mod, "make_reel", make_reel)
 
-async def test_post_command(settings, tmp_path):
-    claude = FakeClaude()
+    claude = FakeClaude(request_plan=RequestPlan(format="reel", template="feature", subject="kiosk"))
     p, n = make(settings, tmp_path, claude=claude)
     api = FakeAPI()
     bot = TelegramBot(api, p, [42])
@@ -105,10 +104,10 @@ async def test_post_command(settings, tmp_path):
     await bot.handle({"message": {"chat": {"id": 42}, "text": "/post"}})
     assert "Scrie ce postare vrei" in api.calls[-1][1]["text"]
 
-    await bot.handle({"message": {"chat": {"id": 42}, "text": "/post carusel 3 greșeli când ții abonamentele în Excel"}})
-    assert "un carusel" in api.calls[-1][1]["text"]
+    request = "vreau un reel despre tableta de la intrare, cu capturi din aplicație"
+    await bot.handle({"message": {"chat": {"id": 42}, "text": "/post " + request}})
+    read = next(c for c in claude.messages.calls if c["output_format"].__name__ == "RequestPlan")
+    # the request was read as a whole, "reel" in the middle included
+    assert request in read["messages"][0]["content"]
     post = p.get(n.drafts[-1])
-    assert post.theme == "custom" and post.extra and post.format == "carousel" and post.template == "quote"
-    assert post.subject == "3 greșeli când ții abonamentele în Excel"
-    sent = claude.beta.messages.calls[-1]["messages"][0]["content"]
-    assert "«3 greșeli când ții abonamentele în Excel»" in sent and "Format: carusel" in sent
+    assert (post.format, post.template, post.subject, post.request) == ("reel", "feature", "kiosk", request)

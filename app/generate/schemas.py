@@ -8,12 +8,18 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-Accent = Literal["indigo", "sky", "dark"]
+# Only the Abonix palette: indigo (primary), sky (secondary), gradient
+# (indigo -> sky, as on abonix.net) and dark (the app's dark background).
+Accent = Literal["indigo", "sky", "gradient", "dark"]
 
 
 class Slide(BaseModel):
     title: str = Field(description="Titlul slide-ului. Maxim 6 cuvinte.")
-    body: str = Field(description="Textul slide-ului. Maxim 25 de cuvinte, o singură idee.")
+    body: str = Field(description="Textul slide-ului. Maxim 25 de cuvinte (maxim 18 cu captură), o singură idee.")
+    screen: Optional[str] = Field(
+        default=None,
+        description="Opțional: o captură reală din lista dată, când slide-ul vorbește chiar despre ecranul ei.",
+    )
 
 
 class PostDraft(BaseModel):
@@ -41,7 +47,10 @@ class PostDraft(BaseModel):
     photo_query: Optional[str] = Field(
         default=None, description="Doar pentru photo: căutare în engleză pentru o fotografie de stoc, fără text."
     )
-    accent: Accent = Field(default="indigo", description="Varianta de culoare a imaginii.")
+    accent: Accent = Field(
+        default="indigo",
+        description="Culoarea imaginii, doar din paleta Abonix: indigo (principală), sky (albastru deschis), "
+                    "gradient (indigo spre albastru, ca pe abonix.net) sau dark (fundalul închis al aplicației).")
     hook: str = Field(description="Unghiul/ideea postării într-o frază, pentru evitarea repetițiilor.")
     slides: list[Slide] = Field(
         default_factory=list,

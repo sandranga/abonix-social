@@ -43,6 +43,7 @@ class Brief:
     examples: list[dict[str, str]] = field(default_factory=list)  # approved posts that did well
     rejected: list[str] = field(default_factory=list)         # hooks of drafts you skipped
     season: dict[str, Any] | None = None
+    screens: dict[str, list[str]] = field(default_factory=dict)  # for slides; default: every feature
     stories: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -89,6 +90,14 @@ def build_user_message(b: Brief) -> str:
         parts.append(
             "Alege `screen` din capturile acestei funcționalități: "
             + ", ".join((b.subject_detail or {}).get("screens", []))
+        )
+    if b.format in ("carousel", "reel"):
+        groups = b.screens or content.screens_by_feature()
+        parts.append(
+            "Capturi reale pe care le poți pune pe slide-uri (câmpul `screen`). Pune o captură pe un slide "
+            "când slide-ul vorbește chiar despre acel ecran: arată aplicația, nu doar text. Cel puțin un "
+            "slide cu captură dacă postarea e despre o funcționalitate. Folosește doar nume din listă:\n"
+            + "\n".join(f"- {name}: {', '.join(files)}" for name, files in groups.items())
         )
     if b.format == "carousel":
         parts.append(

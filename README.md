@@ -40,6 +40,9 @@ Mon 09:00  weekly report in Telegram
 same slides as a 9:16 video (each slide over a blurred copy of itself, a slow
 zoom, crossfades, a silent audio track) made with the ffmpeg bundled in
 `imageio-ffmpeg`. Telegram shows a carousel as an album and a reel as a video.
+Slides can show a real app screenshot (phone, tablet or browser frame) when they
+talk about that screen. Colours come only from the Abonix palette
+(`frontend/src/theme.ts`): indigo, sky, dark, and the abonix.net indigo→sky gradient.
 
 Subjects rotate, so the least recently used one comes next. A skipped draft
 counts as used, and a subject you skip twice in 60 days goes behind all the
@@ -198,7 +201,7 @@ After any edit to `.env`, run `docker compose up -d --force-recreate`.
 `/azi` generate today's draft now · `/genereaza 2026-11-12` ·
 `/extra` one more post today, even if today's is already approved or published ·
 `/extra joi` an extra post with another day's theme (luni … sâmbătă) · `/status` ·
-`/post TEXT` a post written now from your own request (start with `carusel`, `reel` or `foto` to pick the format; default one image), e.g. `/post carusel 3 greșeli când ții abonamentele în Excel` · `/raport` what worked in the last 30 days · `/regula TEXT` · `/reguli` ·
+`/post TEXT` a post written now from your own request, in your own words: Claude reads it and picks the format (reel, carousel, one image) and the cover (app screenshots, stock photo, price card...), e.g. `/post vreau un reel despre tableta de la intrare, cu capturi din aplicație` · `/raport` what worked in the last 30 days · `/regula TEXT` · `/reguli` ·
 `/sterge_regula N` · `/pauza` / `/reia` stop/resume automation ·
 `/verifica` Meta token + IG quota · reply to a draft with text → regenerate with
 those instructions (and remember them for later posts).

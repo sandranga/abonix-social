@@ -7,15 +7,54 @@
 .tpl-slide h1.long { font-size: 80px; }
 .tpl-slide .body { font-size: 46px; line-height: 1.32; font-weight: 500; margin-top: 40px; opacity: .95; max-width: 900px; }
 .tpl-slide .rule { width: 140px; height: 10px; border-radius: 10px; background: var(--sky-light); margin-top: 44px; }
-.accent-sky.tpl-slide .rule { background: #fff; }
+.accent-sky.tpl-slide .rule, .accent-gradient.tpl-slide .rule { background: #fff; }
+
+/* With a screenshot: the app is the point of the slide, the text is short. */
+.tpl-slide.has-shot { justify-content: flex-start; padding-top: 190px; }
+.has-shot .num { display: none; }
+.has-shot h1 { font-size: 72px; margin-top: 0; }
+.has-shot h1.long { font-size: 62px; }
+.has-shot .rule { margin-top: 28px; height: 8px; width: 110px; }
+.has-shot .body { font-size: 34px; margin-top: 26px; }
+.shot { position: absolute; display: flex; justify-content: center; align-items: center; }
+.shot img { display: block; width: 100%; }
+.shot-desktop { left: 60px; right: 60px; bottom: 150px; }
+.shot-desktop .frame { width: 960px; border-radius: 22px; overflow: hidden; background: #fff;
+  box-shadow: 0 40px 90px rgba(15,23,42,.45), 0 0 0 1px rgba(255,255,255,.3); }
+.shot-desktop .bar { height: 42px; background: #e2e8f0; display: flex; align-items: center; gap: 10px; padding: 0 18px; }
+.shot-desktop .bar i { width: 13px; height: 13px; border-radius: 50%; background: #cbd5e1; display: block; }
+.side .text { max-width: 500px; }
+.side .shot { right: 70px; top: 170px; bottom: 150px; }
+.shot-phone .frame { width: 340px; border-radius: 54px; padding: 14px; background: var(--ink);
+  box-shadow: 0 40px 90px rgba(15,23,42,.5), inset 0 0 0 2px #334155; transform: rotate(3deg); }
+.shot-phone .frame img { border-radius: 42px; }
+.shot-tablet .frame { width: 440px; border-radius: 38px; padding: 20px; background: var(--ink);
+  box-shadow: 0 40px 90px rgba(15,23,42,.5), inset 0 0 0 2px #334155; transform: rotate(2deg); }
+.shot-tablet .frame img { border-radius: 20px; }
 {% endblock %}
 {% block body %}
 <div class="blob" style="width:560px;height:560px;left:-220px;top:-180px"></div>
 <div class="ring" style="width:420px;height:420px;right:-160px;bottom:220px"></div>
 <div class="kicker" style="position:absolute;top:88px;left:84px">{{ kicker }}</div>
 <div class="count">{{ index }} / {{ total }}</div>
+{% if screen %}
+<div class="{{ 'side' if screen_kind in ('phone', 'tablet') else '' }}" style="display:contents">
+  <div class="text">
+    <h1 class="{{ 'long' if title|length > 24 }}">{{ title }}</h1>
+    <div class="rule"></div>
+    <p class="body">{{ body }}</p>
+  </div>
+  <div class="shot shot-{{ screen_kind }}">
+    <div class="frame">
+      {% if screen_kind == 'desktop' %}<div class="bar"><i></i><i></i><i></i></div>{% endif %}
+      <img src="{{ assets }}/screens/{{ screen }}" alt="">
+    </div>
+  </div>
+</div>
+{% else %}
 <div class="num">{{ '%02d' % (index - 1) }}</div>
 <h1 class="{{ 'long' if title|length > 28 }}">{{ title }}</h1>
 <div class="rule"></div>
 <p class="body">{{ body }}</p>
+{% endif %}
 {% endblock %}

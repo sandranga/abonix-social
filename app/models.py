@@ -51,6 +51,8 @@ class Post(Base):
     # Every file that gets published, in order: the slides (carousel) or the video (reel).
     media_paths: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     media_urls: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
+    # /post: your original request (the subject may then be a feature or plan key).
+    request: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Instructions you gave when regenerating (reply to a draft), oldest first.
     feedback: Mapped[list[str]] = mapped_column(JSON, default=list, server_default="[]")
     # Meta Insights: {"ig": {...}, "fb": {...}}, refreshed daily for 30 days.

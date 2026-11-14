@@ -58,18 +58,25 @@ class DayPlan:
 CUSTOM = "custom"
 
 
-def custom_plan(request: str, fmt: str = "single", template: str = "quote") -> DayPlan:
-    """A one-off plan for /post: your request is the brief."""
+def custom_plan(request: str, fmt: str = "single", template: str = "quote",
+                subject: str | None = None) -> DayPlan:
+    """A one-off plan for /post: your request is the brief. `subject` is the
+    feature / plan / number key when the cover needs one."""
     guidance = (
         "Postare cerută acum de editor. Cererea lui, de respectat întocmai: «" + request.strip() + "». "
         "Respectă brand book-ul și fișa produsului ca la orice postare: dacă cererea presupune ceva "
         "ce nu e în fișă (funcționalități, prețuri, oferte, cifre), nu inventa; scrie doar ce e adevărat."
     )
-    if template == "photo":
+    # How this kind of cover is written, borrowed from the calendar day that uses it.
+    day = next((weekday_plan(wd) for wd in range(7)
+                if weekday_plan(wd) and weekday_plan(wd).template == template), None)
+    if day and template != "quote":
+        guidance += " Cum se scrie acest tip de imagine: " + day.guidance
+    if template == "photo" and "photo_query" not in guidance:
         guidance += (" Scrie și `photo_query`: o căutare în engleză pentru o fotografie de stoc reală, "
                      "fără text în ea, potrivită cu subiectul.")
     return DayPlan(weekday=-1, theme=CUSTOM, label="Postare la cerere", template=template,
-                   guidance=guidance, subjects=[request.strip()], format=fmt)
+                   guidance=guidance, subjects=[subject or request.strip()], format=fmt)
 
 
 def season(month: int) -> dict[str, Any] | None:
@@ -141,6 +148,11 @@ def allowed_prices() -> set[int]:
     pt = p["personal_trainer"]
     prices |= {pt["price_ron"], pt["reminders_addon_ron"], pt["price_ron"] + pt["reminders_addon_ron"]}
     return prices
+
+
+def screens_by_feature() -> dict[str, list[str]]:
+    """Feature name -> its screenshots, for choosing one per slide."""
+    return {f["name"]: list(f.get("screens", [])) for f in product()["features"] if f.get("screens")}
 
 
 def all_screens() -> list[str]:

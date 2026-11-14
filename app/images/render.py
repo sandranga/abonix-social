@@ -83,7 +83,7 @@ def build_context(template: str, theme: str, subject: str, draft: dict[str, Any]
             raise ValueError("photo template needs a photo")
         ctx["photo_src"] = photo_path.resolve().as_uri()
         ctx["photo_credit"] = photo_credit
-        if ctx["accent"] == "dark":
+        if ctx["accent"] in ("dark", "gradient"):  # the photo gets a solid brand tint
             ctx["accent"] = "indigo"
     return ctx
 
@@ -135,7 +135,9 @@ def slide_pages(theme: str, draft: dict[str, Any], out_stem: Path) -> list[tuple
     base = {"assets": ASSETS_DIR.as_uri(), "accent": accent, "kicker": KICKERS.get(theme, "Abonix"), "total": total}
     pages = []
     for i, sl in enumerate(slides, start=2):
-        ctx = {**base, "template": "slide", "index": i, "title": sl["title"], "body": sl["body"]}
+        screen = sl.get("screen")
+        ctx = {**base, "template": "slide" + (" has-shot" if screen else ""), "index": i, "title": sl["title"],
+               "body": sl["body"], "screen": screen, "screen_kind": screen_kind(screen) if screen else None}
         pages.append((render_html("slide", ctx), out_stem.with_name(f"{out_stem.name}-{i}.jpg")))
     ctx = {**base, "template": "cta", "index": total}
     pages.append((render_html("cta", ctx), out_stem.with_name(f"{out_stem.name}-{total}.jpg")))

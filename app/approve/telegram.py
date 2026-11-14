@@ -40,9 +40,9 @@ HELP = """Comenzi:
 /genereaza AAAA-LL-ZZ – generează draftul pentru o dată
 /extra – încă o postare azi, chiar dacă cea de azi e deja aprobată/publicată
 /extra joi – postare extra cu tema altei zile (luni … sâmbătă)
-/post TEXT – o postare scrisă acum după cererea ta; începe cu carusel, reel sau
-  foto ca să alegi formatul (implicit: o imagine), de ex.
-  /post carusel 3 greșeli când ții abonamentele în Excel
+/post TEXT – o postare scrisă acum după cererea ta. Spune ce vrei: reel,
+  carusel, o poză, o funcționalitate cu capturi din aplicație, un plan cu preț…
+  de ex. /post reel despre tableta de la intrare, cu capturi din aplicație
 /raport – ce a mers în ultimele 30 de zile (reach, salvări, distribuiri)
 /regula TEXT – o regulă pe care o respect la fiecare postare
 /reguli – regulile tale · /sterge_regula N – șterge regula N
@@ -65,24 +65,6 @@ def parse_weekday(arg: str) -> int | None:
     plain = str.maketrans("ăâîșşțţ", "aaisstt")
     a = arg.strip().lower().translate(plain)
     return next((i for i, z in enumerate(ZILE) if z.translate(plain) == a), None)
-
-
-# First word of /post -> (format, cover template). Without one: a single text image.
-POST_KINDS = {
-    "carusel": ("carousel", "quote"), "carousel": ("carousel", "quote"),
-    "reel": ("reel", "quote"), "video": ("reel", "quote"),
-    "foto": ("single", "photo"), "poza": ("single", "photo"), "imagine": ("single", "quote"),
-}
-
-
-def parse_post_request(arg: str) -> tuple[str, str, str]:
-    """'/post carusel 3 greșeli...' -> ('carousel', 'quote', '3 greșeli...')."""
-    plain = str.maketrans("ăâîșşțţ", "aaisstt")
-    first, _, rest = arg.strip().partition(" ")
-    kind = POST_KINDS.get(first.lower().translate(plain))
-    if kind and rest.strip():
-        return kind[0], kind[1], rest.strip()
-    return "single", "quote", arg.strip()
 
 
 def _truncate(s: str, n: int) -> str:
@@ -312,10 +294,8 @@ class TelegramBot:
                     "/post reel de ce memento-urile cresc reînnoirile\n"
                     "/post foto pentru cluburile de înot, înscrierile de toamnă"))
                 return
-            fmt, template, request = parse_post_request(arg)
-            label = {"carousel": "un carusel", "reel": "un reel"}.get(fmt, "o postare")
-            await self.api.call("sendMessage", chat_id=chat, text=f"⏳ Scriu {label} după cererea ta…")
-            await self.pipeline.generate_custom(self.pipeline.today(), request, fmt, template)
+            await self.api.call("sendMessage", chat_id=chat, text="⏳ Citesc cererea și scriu postarea…")
+            await self.pipeline.generate_custom(self.pipeline.today(), arg.strip())
         elif cmd == "/raport":
             await self.api.call("sendMessage", chat_id=chat, text=_truncate(self.pipeline.report_text(), MESSAGE_MAX))
         elif cmd == "/regula":

@@ -256,3 +256,75 @@ async def test_custom_photo_post_uses_a_stock_photo(settings, tmp_path):
     p, _ = make(settings, tmp_path, claude=claude)
     post = await p.generate_custom(MONDAY, "pentru cluburile de înot", template="photo")
     assert post.template == "photo" and post.photo and "photo_query" in prompt(claude)
+
+
+# ------------------------------------------------- /post follows the request
+def test_keyword_fallback_reads_the_whole_request():
+    from app.generate.request import guess
+
+    assert guess("vreau un reel despre memento-uri").format == "reel"
+    assert guess("fă-mi un carusel cu 3 sfaturi").format == "carousel"
+    assert guess("o poză cu un club de înot").template == "photo"
+    kiosk = guess("reel cu tableta de check-in la intrare")
+    assert (kiosk.format, kiosk.template, kiosk.subject) == ("reel", "feature", "kiosk")
+    assert guess("anunță programul de Crăciun") .template == "quote"
+
+
+async def test_post_uses_claudes_reading_of_the_request(settings, tmp_path, fake_reel):
+    from app.generate.request import RequestPlan
+
+    claude = FakeClaude(request_plan=RequestPlan(format="carousel", template="feature", subject="reminders"))
+    p, _ = make(settings, tmp_path, claude=claude)
+    post = await p.generate_custom(MONDAY, "carusel despre memento-uri, cu capturi")
+    assert (post.format, post.template, post.subject) == ("carousel", "feature", "reminders")
+    assert post.request == "carusel despre memento-uri, cu capturi" and len(post.media_paths) == 4
+    sent = prompt(claude)
+    assert "«carusel despre memento-uri, cu capturi»" in sent
+    assert "memento-setari.webp" in sent and "panou.webp" not in sent.split("Capturi reale")[1]  # only its screens
+
+    again = await p.regenerate(post.id, feedback="mai scurt")  # keeps both the request and the feature
+    assert again.template == "feature" and "«carusel despre memento-uri, cu capturi»" in prompt(claude)
+
+
+async def test_unknown_key_from_claude_falls_back_to_text(settings, tmp_path):
+    from app.generate.request import RequestPlan
+
+    claude = FakeClaude(request_plan=RequestPlan(format="single", template="feature", subject="teleportare"))
+    p, _ = make(settings, tmp_path, claude=claude)
+    post = await p.generate_custom(MONDAY, "ceva despre teleportare")
+    assert post.template == "quote" and post.subject == "ceva despre teleportare"
+
+
+async def test_slides_can_show_screens_and_unknown_ones_are_dropped(settings, tmp_path):
+    from app.generate.review import rule_issues
+
+    slides = [{"title": "Memento automat", "body": "Pleacă singur.", "screen": "memento-setari.webp"},
+              {"title": "Inventat", "body": "Nu există ecranul.", "screen": "nu-exista.webp"}]
+    issues = " ".join(rule_issues(good_draft(slides=slides), "feature", "carousel"))
+    assert "„nu-exista.webp” nu există" in issues
+
+    long = [{"title": "Cu captură", "body": " ".join(["cuvânt"] * 19), "screen": "panou.webp"},
+            {"title": "Fără", "body": " ".join(["cuvânt"] * 19)}]
+    issues = rule_issues(good_draft(slides=long), "feature", "carousel")
+    assert any("Slide 2: textul are 19 cuvinte (max 18)" in i for i in issues)
+    assert not any("Slide 3: textul" in i for i in issues)  # without a screen 25 is fine
+
+    p, _ = make(settings, tmp_path, claude=FakeClaude(drafts=[good_draft(slides=slides)]))
+    post = await p.generate_for(MONDAY)
+    assert [s["screen"] for s in post.content["slides"]] == ["memento-setari.webp", None]
+
+
+def test_brand_palette_only():
+    import re
+
+    from app.config import TEMPLATES_DIR
+    from app.generate.schemas import PostDraft
+
+    assert good_draft(accent="gradient").accent == "gradient"
+    with pytest.raises(ValueError):
+        PostDraft(**{**good_draft().model_dump(), "accent": "green"})
+    # Backgrounds and tints use the palette variables, not stray colours.
+    css = (TEMPLATES_DIR / "base.html").read_text(encoding="utf-8")
+    accents = "\n".join(line for line in css.splitlines() if line.startswith(".accent-") and "background" in line)
+    assert "#6366f1" not in accents and "#2563eb" not in accents
+    assert re.findall(r"#[0-9a-fA-F]{6}", accents) == []

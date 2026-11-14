@@ -72,12 +72,15 @@ def slide_issues(d: PostDraft, fmt: str) -> list[str]:
     issues = []
     if not (2 <= len(d.slides) <= 4):
         issues.append(f"{'Caruselul' if fmt == 'carousel' else 'Reel-ul'} are {len(d.slides)} slide-uri (2-4).")
-    max_body = 25 if fmt == "carousel" else 20
+    known = set(content.all_screens())
     for i, sl in enumerate(d.slides, start=2):  # slide 1 is the cover
+        max_body = 18 if sl.screen else (25 if fmt == "carousel" else 20)
         if words(sl.title) > 6:
             issues.append(f"Slide {i}: titlul are {words(sl.title)} cuvinte (max 6): „{sl.title}”")
         if words(sl.body) > max_body:
             issues.append(f"Slide {i}: textul are {words(sl.body)} cuvinte (max {max_body}).")
+        if sl.screen and sl.screen not in known:
+            issues.append(f"Slide {i}: captura „{sl.screen}” nu există.")
     return issues
 
 

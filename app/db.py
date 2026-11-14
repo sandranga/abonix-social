@@ -41,6 +41,7 @@ NEW_POST_COLUMNS = [
     ("feedback", "JSON NOT NULL DEFAULT '[]'"),
     ("metrics", "JSON NOT NULL DEFAULT '{}'"),
     ("metrics_at", "DATETIME"),
+    ("request", "TEXT"),
 ]
 
 
